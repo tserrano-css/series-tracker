@@ -59,3 +59,9 @@ La web estará disponible en:
 ```bash
 pip install pandas openpyxl
 ```
+
+## Para ejecutar localmente
+
+```bash
+python -m http.server 8000
+```
