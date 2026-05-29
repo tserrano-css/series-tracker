@@ -10,6 +10,22 @@ import sys
 import os
 import pandas as pd
 
+def load_existing_posters(output_path):
+    if not os.path.exists(output_path):
+        return {}
+    with open(output_path, 'r', encoding='utf-8') as fp:
+        current = json.load(fp)
+    posters = {}
+    for item in current:
+        poster = item.get('g')
+        if not poster:
+            continue
+        if item.get('u'):
+            posters[item['u'].rstrip('/')] = poster
+        if item.get('t'):
+            posters[item['t']] = poster
+    return posters
+
 def main():
     # Ruta al Excel
     xlsx_path = sys.argv[1] if len(sys.argv) > 1 else "Series.xlsx"
@@ -20,6 +36,9 @@ def main():
 
     print(f"📂 Leyendo {xlsx_path}...")
     df = pd.read_excel(xlsx_path, sheet_name='Series')
+
+    output_path = os.path.join(os.path.dirname(xlsx_path), 'series.json')
+    existing_posters = load_existing_posters(output_path)
 
     series_list = []
     for _, row in df.iterrows():
@@ -50,16 +69,22 @@ def main():
         notas = str(row.get('Columna1', '')).strip() if pd.notna(row.get('Columna1')) else ''
         notas = '' if notas in ['nan', 'NaN'] else notas
 
-        series_list.append({
-            't': str(row['Serie']).strip(),
-            'u': str(row.get('URL', '')).strip() if pd.notna(row.get('URL')) else '',
+        title = str(row['Serie']).strip()
+        url = str(row.get('URL', '')).strip() if pd.notna(row.get('URL')) else ''
+        poster = existing_posters.get(url.rstrip('/')) or existing_posters.get(title)
+
+        series_item = {
+            't': title,
+            'u': url,
             'p': str(row.get('Plataforma', '')).strip() if pd.notna(row.get('Plataforma')) else '',
             'i': imdb, 'f': fa, 'm': media,
             'v': vista, 'w': watching, 'a': animacion,
             'e': episodes, 'es': estreno, 's': segunda, 'n': notas,
-        })
+        }
+        if poster:
+            series_item['g'] = poster
+        series_list.append(series_item)
 
-    output_path = os.path.join(os.path.dirname(xlsx_path), 'series.json')
     with open(output_path, 'w', encoding='utf-8') as fp:
         json.dump(series_list, fp, ensure_ascii=False, separators=(',', ':'))
 
