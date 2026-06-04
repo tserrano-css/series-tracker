@@ -351,12 +351,32 @@
   .card-title a:hover { color: var(--accent); }
 
   .card-platform {
-    font-size: 11px;
-    color: var(--text-muted);
-    margin-top: 3px;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .plat-icon {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    border-radius: 3px;
+    vertical-align: middle;
+    flex-shrink: 0;
+  }
+
+  .plat-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 3px;
+    letter-spacing: 0.4px;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    background: var(--surface2);
+    color: var(--text-dim);
   }
 
   /* SCORES */
@@ -899,7 +919,7 @@ function renderCard(s) {
         <div class="status-icon ${s.a ? 'anim' : statusClass}">${s.a ? '🎨' : statusIcon}</div>
         <div class="card-title-wrap">
           <div class="card-title">${titleEl}</div>
-          <div class="card-platform">${escHtml(s.p || '')}</div>
+          <div class="card-platform">${platformBadge(s.p || '')}</div>
         </div>
       </div>
       <div class="scores">
@@ -928,6 +948,31 @@ function renderCard(s) {
     <div class="card-tags">${tags.join('')}</div>
   </div>
 </div>`;
+}
+
+const PLAT_CFG = {
+  'Netflix':    { si: 'netflix',          color: 'E50914' },
+  'Amazon':     { si: 'amazonprimevideo', color: '00A8E1' },
+  'MAX':        { si: 'max',              color: '002BE7' },
+  'Disney+':    { si: 'disneyplus',       color: '113CCF' },
+  'Apple TV':   { si: 'appletv',          color: '000000' },
+  'Crunchyroll':{ si: 'crunchyroll',      color: 'F47521' },
+  'SkyShowtime':{ si: 'skyshowtime',      color: '6B2D8B' },
+  'Movistar+':  { badge: 'M+',     bg: '#019BF9', fg: '#fff' },
+  'Filmin':     { badge: 'Filmin', bg: '#9B1B1F', fg: '#fff' },
+  'TV España':  { badge: 'TVE',    bg: '#C60B1E', fg: '#fff' },
+};
+
+function platformBadge(raw) {
+  if (!raw) return '';
+  return raw.split(',').map(p => {
+    p = p.trim();
+    const pm = getMainPlatform(p);
+    const cfg = PLAT_CFG[pm];
+    if (cfg?.si) return `<img src="https://cdn.simpleicons.org/${cfg.si}/${cfg.color}" class="plat-icon" title="${escHtml(p)}" alt="${escHtml(pm)}" loading="lazy">`;
+    if (cfg?.badge) return `<span class="plat-badge" style="background:${cfg.bg};color:${cfg.fg}" title="${escHtml(p)}">${cfg.badge}</span>`;
+    return `<span class="plat-badge" title="${escHtml(p)}">${escHtml(pm || p)}</span>`;
+  }).join('');
 }
 
 function escHtml(str) {
