@@ -511,6 +511,16 @@
   .tag.viendo { background: rgba(251,146,60,0.12); color: var(--viendo); border: 1px solid rgba(251,146,60,0.2); }
   .tag.pendiente { background: rgba(96,165,250,0.08); color: var(--pendiente); border: 1px solid rgba(96,165,250,0.15); }
   .tag.anim { background: rgba(78,205,196,0.1); color: var(--accent3); border: 1px solid rgba(78,205,196,0.2); }
+
+  .seasons-info {
+    font-size: 10px;
+    color: var(--text-muted);
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 0 16px 8px;
+  }
+  .seasons-info span { display: flex; align-items: center; gap: 3px; }
   .tag.next { background: rgba(248,113,113,0.1); color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
 
   .card-tags { display: flex; gap: 4px; flex-wrap: wrap; }
@@ -911,6 +921,15 @@ function renderCard(s) {
     estrenoNote = `<div class="estreno-note">📅 ${tc.estrena} ${escHtml(s.es)}</div>`;
   }
 
+  // Seasons info (only for "en curs")
+  let seasonsInfo = '';
+  if (s.w && (s.tv || s.tp)) {
+    const parts = [];
+    if (s.tv) parts.push(`<span>✓ T${escHtml(s.tv)}</span>`);
+    if (s.tp) parts.push(`<span>⏳ T${escHtml(s.tp)}</span>`);
+    seasonsInfo = `<div class="seasons-info">${parts.join('')}</div>`;
+  }
+
   return `
 <div class="card ${statusClass}-card">
   <div class="card-main">
@@ -943,7 +962,7 @@ function renderCard(s) {
       </div>
     </div>
   </div>
-  ${estrenoNote}
+  ${estrenoNote}${seasonsInfo}
   <div class="card-footer">
     <div class="episodes-badge">${epsText}</div>
     <div class="card-tags">${tags.join('')}</div>
