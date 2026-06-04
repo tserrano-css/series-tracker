@@ -630,6 +630,7 @@
     <button class="btn-filter" onclick="setFilter('estado','vista',this)">✅ Vistas</button>
     <button class="btn-filter" onclick="setFilter('estado','viendo',this)">▶️ Viendo</button>
     <button class="btn-filter" onclick="setFilter('estado','pendiente',this)">🔵 Pendientes</button>
+    <button class="btn-filter" onclick="setFilter('estado','nova_temp',this)">🔔 Pend. nova temp.</button>
   </div>
   <button class="btn-filter" id="btnAnim" onclick="toggleAnim(this)">🎨 Animación</button>
 
@@ -689,7 +690,7 @@ const i18n = {
     pendents: 'pendents', animacio: 'animació',
     searchPlaceholder: 'Cercar sèrie, plataforma...',
     totes: 'Totes', btnVistes: '✅ Vistes', btnVeient: '▶️ Veient',
-    btnPendents: '🔵 Pendents', btnAnim: '🎨 Animació',
+    btnPendents: '🔵 Pendents', btnNovaTemp: '🔔 Pend. nova temp.', btnAnim: '🎨 Animació',
     totesPlat: 'Totes les plataformes', ordenar: 'Ordenar:',
     sortMedia: 'Mitjana ↓', sortEps: 'Més episodis',
     mostrant: (n, t) => `Mostrant <strong>${n}</strong> de <strong>${t}</strong> sèries`,
@@ -710,7 +711,7 @@ const i18n = {
     pendents: 'pendientes', animacio: 'animación',
     searchPlaceholder: 'Buscar serie, plataforma...',
     totes: 'Todas', btnVistes: '✅ Vistas', btnVeient: '▶️ Viendo',
-    btnPendents: '🔵 Pendientes', btnAnim: '🎨 Animación',
+    btnPendents: '🔵 Pendientes', btnNovaTemp: '🔔 Pend. nueva temp.', btnAnim: '🎨 Animación',
     totesPlat: 'Todas las plataformas', ordenar: 'Ordenar:',
     sortMedia: 'Media ↓', sortEps: 'Más episodios',
     mostrant: (n, t) => `Mostrando <strong>${n}</strong> de <strong>${t}</strong> series`,
@@ -738,6 +739,7 @@ function applyLang() {
   estadoBtns[1].textContent = t.btnVistes;
   estadoBtns[2].textContent = t.btnVeient;
   estadoBtns[3].textContent = t.btnPendents;
+  estadoBtns[4].textContent = t.btnNovaTemp;
   document.getElementById('btnAnim').textContent = t.btnAnim;
   document.querySelector('#platformFilter option:first-child').textContent = t.totesPlat;
   document.getElementById('sortLabel').textContent = t.ordenar;
@@ -839,6 +841,7 @@ function applyFilters() {
     if (estado === 'vista' && (!s.v || s.w)) return false;
     if (estado === 'viendo' && !s.w) return false;
     if (estado === 'pendiente' && s.v) return false;
+    if (estado === 'nova_temp' && !(s.v && !s.w && s.s && s.s !== '' && s.s.toLowerCase() !== 'nan')) return false;
     if (soloAnim && !s.a) return false;
     if (plat && s.pm !== plat) return false;
     if (q && !s.t.toLowerCase().includes(q) && !s.p.toLowerCase().includes(q)) return false;
