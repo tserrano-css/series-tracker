@@ -131,44 +131,7 @@
     text-transform: uppercase;
   }
 
-  /* STATS ROW */
-  .stats-row {
-    display: flex;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-
-  .stat-pill {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 100px;
-    padding: 6px 14px;
-    font-size: 13px;
-  }
-
-  .stat-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-  }
-
-  .stat-dot.vista { background: var(--vista); }
-  .stat-dot.viendo { background: var(--viendo); }
-  .stat-dot.pendiente { background: var(--pendiente); }
-  .stat-dot.total { background: var(--accent); }
-  .stat-dot.anim { background: var(--accent3); }
-
-  .stat-pill strong {
-    font-weight: 600;
-    color: var(--text);
-  }
-
-  .stat-pill span {
-    color: var(--text-dim);
-  }
+  /* STATS ROW — eliminat, comptadors als botons */
 
   /* CONTROLS */
   .controls {
@@ -616,7 +579,6 @@
       <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Canviar tema">🌙</button>
     </div>
   </div>
-  <div class="stats-row" id="statsRow"></div>
 </div>
 
 <div class="controls">
@@ -734,13 +696,7 @@ function applyLang() {
   const t = i18n[lang];
   document.getElementById('subtitle').textContent = t.subtitle;
   document.getElementById('searchInput').placeholder = t.searchPlaceholder;
-  const estadoBtns = document.querySelectorAll('#estadoGroup .btn-filter');
-  estadoBtns[0].textContent = t.totes;
-  estadoBtns[1].textContent = t.btnVistes;
-  estadoBtns[2].textContent = t.btnVeient;
-  estadoBtns[3].textContent = t.btnPendents;
-  estadoBtns[4].textContent = t.btnNovaTemp;
-  document.getElementById('btnAnim').textContent = t.btnAnim;
+  // Els botons d'estat i animació els actualitza renderStats() amb els comptadors
   document.querySelector('#platformFilter option:first-child').textContent = t.totesPlat;
   document.getElementById('sortLabel').textContent = t.ordenar;
   document.querySelector('#sortFilter option[value="media"]').textContent = t.sortMedia;
@@ -800,21 +756,20 @@ function getMainPlatform(p) {
 
 function renderStats() {
   const t = i18n[lang];
-  const total     = SERIES_DATA.length;
-  const vistas    = SERIES_DATA.filter(s => s.v && !s.w && !s.nt).length;
-  const viendo    = SERIES_DATA.filter(s => s.w).length;
-  const novaTemp  = SERIES_DATA.filter(s => s.nt).length;
-  const pendientes= SERIES_DATA.filter(s => !s.v).length;
-  const anim      = SERIES_DATA.filter(s => s.a).length;
+  const total    = SERIES_DATA.length;
+  const vistas   = SERIES_DATA.filter(s => s.v && !s.w && !s.nt).length;
+  const viendo   = SERIES_DATA.filter(s => s.w).length;
+  const novaTemp = SERIES_DATA.filter(s => s.nt).length;
+  const pendents = SERIES_DATA.filter(s => !s.v).length;
+  const anim     = SERIES_DATA.filter(s => s.a).length;
 
-  document.getElementById('statsRow').innerHTML = `
-    <div class="stat-pill"><div class="stat-dot total"></div><strong>${total.toLocaleString()}</strong><span>${t.series}</span></div>
-    <div class="stat-pill"><div class="stat-dot vista"></div><strong>${vistas}</strong><span>${t.vistes}</span></div>
-    <div class="stat-pill"><div class="stat-dot viendo"></div><strong>${viendo}</strong><span>${t.veient}</span></div>
-    <div class="stat-pill"><div class="stat-dot" style="background:var(--accent2)"></div><strong>${novaTemp}</strong><span>${t.novaTemp}</span></div>
-    <div class="stat-pill"><div class="stat-dot pendiente"></div><strong>${pendientes}</strong><span>${t.pendents}</span></div>
-    <div class="stat-pill"><div class="stat-dot anim"></div><strong>${anim}</strong><span>${t.animacio}</span></div>
-  `;
+  const btns = document.querySelectorAll('#estadoGroup .btn-filter');
+  btns[0].textContent = `${t.totes} (${total.toLocaleString()})`;
+  btns[1].textContent = `${t.btnVistes} (${vistas})`;
+  btns[2].textContent = `${t.btnVeient} (${viendo})`;
+  btns[3].textContent = `${t.btnPendents} (${pendents})`;
+  btns[4].textContent = `${t.btnNovaTemp} (${novaTemp})`;
+  document.getElementById('btnAnim').textContent = `${t.btnAnim} (${anim})`;
 }
 
 function setFilter(key, val, el) {
