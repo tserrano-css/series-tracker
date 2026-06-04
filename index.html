@@ -456,7 +456,8 @@
   }
 
   .mini-bar-fill.imdb { background: var(--imdb); }
-  .mini-bar-fill.fa { background: #60a5fa; }
+  .mini-bar-fill.fa   { background: #60a5fa; }
+  .mini-bar-fill.tm   { background: #01d277; }
 
   .mini-bar-val {
     font-size: 10px;
@@ -965,10 +966,12 @@ function renderCard(s) {
   const statusIcon = s.w ? '▶' : s.v ? '✓' : '○';
 
   const imdbPct = s.i ? (s.i / 10 * 100).toFixed(1) : 0;
-  const faPct = s.f ? (s.f / 10 * 100).toFixed(1) : 0;
+  const faPct   = s.f  ? (s.f  / 10 * 100).toFixed(1) : 0;
+  const tmPct   = s.tm ? (s.tm / 10 * 100).toFixed(1) : 0;
 
-  const imdbDisp = s.i ? s.i.toFixed(1) : '—';
-  const faDisp = s.f ? s.f.toFixed(1) : '—';
+  const imdbDisp  = s.i  ? s.i.toFixed(1)  : '—';
+  const faDisp    = s.f  ? s.f.toFixed(1)  : '—';
+  const tmDisp    = s.tm ? s.tm.toFixed(1) : '—';
   const mediaDisp = s.m && s.m > 0 ? s.m.toFixed(2) : '—';
 
   const titleEl = s.u
@@ -1036,6 +1039,11 @@ function renderCard(s) {
             <div class="mini-bar"><div class="mini-bar-fill fa" style="width:${faPct}%"></div></div>
             <span class="mini-bar-val">${faDisp}</span>
           </div>
+          ${s.tm ? `<div class="mini-bar-row">
+            <span class="mini-bar-label" style="color:#01d277;font-size:9px;font-weight:600">TM</span>
+            <div class="mini-bar"><div class="mini-bar-fill tm" style="width:${tmPct}%"></div></div>
+            <span class="mini-bar-val">${tmDisp}</span>
+          </div>` : ''}
         </div>
       </div>
     </div>
@@ -1159,6 +1167,9 @@ function goPage(p) {
         <label>Filmaffinity
           <input id="editFa" type="number" step="0.1" min="0" max="10" placeholder="7.8">
         </label>
+        <label>TMDB
+          <input id="editTm" type="number" step="0.1" min="0" max="10" placeholder="7.5">
+        </label>
         <label>Episodis
           <input id="editEps" type="number" min="1" placeholder="10">
         </label>
@@ -1272,6 +1283,7 @@ function openEditSeries(idx) {
   document.querySelectorAll('input[name="plat"]').forEach(cb => { cb.checked = platVals.includes(cb.value); });
   document.getElementById('editImdb').value    = s.i ?? '';
   document.getElementById('editFa').value      = s.f ?? '';
+  document.getElementById('editTm').value      = s.tm ?? '';
   document.getElementById('editEps').value     = s.e ?? '';
   document.getElementById('editTv').value      = s.tv || '';
   document.getElementById('editTp').value      = s.tp || '';
@@ -1310,16 +1322,18 @@ function deleteSeries() {
 
 function saveEdit() {
   const estat = document.getElementById('editEstat').value;
-  const imdb  = parseFloat(document.getElementById('editImdb').value)  || null;
-  const fa    = parseFloat(document.getElementById('editFa').value)    || null;
-  const media = imdb && fa ? Math.round((imdb + fa) / 2 * 100) / 100 : (imdb || fa || null);
+  const imdb  = parseFloat(document.getElementById('editImdb').value) || null;
+  const fa    = parseFloat(document.getElementById('editFa').value)   || null;
+  const tm    = parseFloat(document.getElementById('editTm').value)   || null;
+  const vals  = [imdb, fa, tm].filter(v => v);
+  const media = vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*100)/100 : null;
   const plat  = [...document.querySelectorAll('input[name="plat"]:checked')].map(cb => cb.value).join(', ');
 
   const updated = {
     t:  document.getElementById('editTitle').value.trim(),
     u:  document.getElementById('editUrl').value.trim(),
     p:  plat,
-    i:  imdb, f: fa, m: media,
+    i:  imdb, f: fa, tm: tm, m: media,
     v:  ['Completada','En curs','Pend. nova temp.'].includes(estat),
     w:  estat === 'En curs',
     nt: estat === 'Pend. nova temp.',
