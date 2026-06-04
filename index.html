@@ -359,8 +359,9 @@
   }
 
   .plat-icon {
-    width: 18px;
     height: 18px;
+    width: auto;
+    max-width: 64px;
     object-fit: contain;
     border-radius: 3px;
     vertical-align: middle;
@@ -1046,9 +1047,9 @@ function renderCard(s) {
 
 const PLAT_CFG = {
   'Netflix':    { si: 'netflix',          color: 'E50914' },
-  'Prime Video':{ badge: 'Prime',  bg: '#00A8E1', fg: '#fff' },
+  'Prime Video':{ wm: 'https://upload.wikimedia.org/wikipedia/commons/1/11/Amazon_Prime_Video_logo.svg' },
   'HBO MAX':    { si: 'hbomax',            color: '002BE7' },
-  'Disney+':    { badge: 'Disney+', bg: '#0063e5', fg: '#fff' },
+  'Disney+':    { wm: 'https://upload.wikimedia.org/wikipedia/commons/3/3e/Disney%2B_logo.svg' },
   'Apple TV':   { si: 'appletv',          color: '000000' },
   'Crunchyroll':{ si: 'crunchyroll',      color: 'F47521' },
   'SkyShowtime':{ si: 'skyshowtime',      color: '6B2D8B' },
@@ -1067,6 +1068,7 @@ function platformBadge(raw) {
       const style = cfg.bg ? ` style="background:${cfg.bg};border-radius:3px;padding:2px"` : '';
       return `<img src="https://cdn.simpleicons.org/${cfg.si}/${cfg.color}" class="plat-icon" title="${escHtml(p)}" alt="${escHtml(pm)}" loading="lazy"${style}>`;
     }
+    if (cfg?.wm) return `<img src="${cfg.wm}" class="plat-icon" title="${escHtml(p)}" alt="${escHtml(pm)}" loading="lazy">`;
     if (cfg?.badge) return `<span class="plat-badge" style="background:${cfg.bg};color:${cfg.fg}" title="${escHtml(p)}">${cfg.badge}</span>`;
     return `<span class="plat-badge" title="${escHtml(p)}">${escHtml(pm || p)}</span>`;
   }).join('');
