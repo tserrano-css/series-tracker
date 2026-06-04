@@ -687,7 +687,7 @@ const i18n = {
   ca: {
     subtitle: 'La meva col·lecció personal',
     series: 'sèries', vistes: 'vistes', veient: 'veient',
-    pendents: 'pendents', animacio: 'animació',
+    pendents: 'pendents', novaTemp: 'nova temp.', animacio: 'animació',
     searchPlaceholder: 'Cercar sèrie, plataforma...',
     totes: 'Totes', btnVistes: '✅ Vistes', btnVeient: '▶️ Veient',
     btnPendents: '🔵 Pendents', btnNovaTemp: '🔔 Pend. nova temp.', btnAnim: '🎨 Animació',
@@ -697,7 +697,7 @@ const i18n = {
     pagina: (c, t) => `Pàgina ${c} de ${t}`,
     carregant: 'Carregant...',
     tagVeient: '▶ Veient', tagVista: '✓ Vista', tagPendent: 'Pendent',
-    tagAnim: 'Anim.', tagTemp: '2a temp.',
+    tagAnim: 'Anim.', tagTemp: '2a temp.', tagNova: '🔔 Nova temp.',
     estrena: 'Estrena:', emptyTitle: 'Sense resultats',
     emptyMsg: 'Prova altres filtres o cerca',
     errorTitle: 'Error en carregar dades',
@@ -708,7 +708,7 @@ const i18n = {
   es: {
     subtitle: 'Mi colección personal',
     series: 'series', vistes: 'vistas', veient: 'viendo',
-    pendents: 'pendientes', animacio: 'animación',
+    pendents: 'pendientes', novaTemp: 'nueva temp.', animacio: 'animación',
     searchPlaceholder: 'Buscar serie, plataforma...',
     totes: 'Todas', btnVistes: '✅ Vistas', btnVeient: '▶️ Viendo',
     btnPendents: '🔵 Pendientes', btnNovaTemp: '🔔 Pend. nueva temp.', btnAnim: '🎨 Animación',
@@ -718,7 +718,7 @@ const i18n = {
     pagina: (c, t) => `Página ${c} de ${t}`,
     carregant: 'Cargando...',
     tagVeient: '▶ Viendo', tagVista: '✓ Vista', tagPendent: 'Pendiente',
-    tagAnim: 'Anim.', tagTemp: '2ª temp.',
+    tagAnim: 'Anim.', tagTemp: '2ª temp.', tagNova: '🔔 Nueva temp.',
     estrena: 'Estreno:', emptyTitle: 'Sin resultados',
     emptyMsg: 'Prueba otros filtros o búsqueda',
     errorTitle: 'Error al cargar datos',
@@ -800,16 +800,18 @@ function getMainPlatform(p) {
 
 function renderStats() {
   const t = i18n[lang];
-  const total = SERIES_DATA.length;
-  const vistas = SERIES_DATA.filter(s => s.v && !s.w).length;
-  const viendo = SERIES_DATA.filter(s => s.w).length;
-  const pendientes = SERIES_DATA.filter(s => !s.v).length;
-  const anim = SERIES_DATA.filter(s => s.a).length;
+  const total     = SERIES_DATA.length;
+  const vistas    = SERIES_DATA.filter(s => s.v && !s.w && !s.nt).length;
+  const viendo    = SERIES_DATA.filter(s => s.w).length;
+  const novaTemp  = SERIES_DATA.filter(s => s.nt).length;
+  const pendientes= SERIES_DATA.filter(s => !s.v).length;
+  const anim      = SERIES_DATA.filter(s => s.a).length;
 
   document.getElementById('statsRow').innerHTML = `
     <div class="stat-pill"><div class="stat-dot total"></div><strong>${total.toLocaleString()}</strong><span>${t.series}</span></div>
     <div class="stat-pill"><div class="stat-dot vista"></div><strong>${vistas}</strong><span>${t.vistes}</span></div>
     <div class="stat-pill"><div class="stat-dot viendo"></div><strong>${viendo}</strong><span>${t.veient}</span></div>
+    <div class="stat-pill"><div class="stat-dot" style="background:var(--accent2)"></div><strong>${novaTemp}</strong><span>${t.novaTemp}</span></div>
     <div class="stat-pill"><div class="stat-dot pendiente"></div><strong>${pendientes}</strong><span>${t.pendents}</span></div>
     <div class="stat-pill"><div class="stat-dot anim"></div><strong>${anim}</strong><span>${t.animacio}</span></div>
   `;
@@ -841,7 +843,7 @@ function applyFilters() {
     if (estado === 'vista' && (!s.v || s.w)) return false;
     if (estado === 'viendo' && !s.w) return false;
     if (estado === 'pendiente' && s.v) return false;
-    if (estado === 'nova_temp' && !(s.v && !s.w && s.s && s.s !== '' && s.s.toLowerCase() !== 'nan')) return false;
+    if (estado === 'nova_temp' && !s.nt) return false;
     if (soloAnim && !s.a) return false;
     if (plat && s.pm !== plat) return false;
     if (q && !s.t.toLowerCase().includes(q) && !s.p.toLowerCase().includes(q)) return false;
@@ -913,7 +915,7 @@ function renderCard(s) {
   else if (s.v) tags.push(`<span class="tag vista">${tc.tagVista}</span>`);
   else tags.push(`<span class="tag pendiente">${tc.tagPendent}</span>`);
   if (s.a) tags.push(`<span class="tag anim">${tc.tagAnim}</span>`);
-  if (s.s && s.s !== '' && s.s.toLowerCase() !== 'nan') tags.push(`<span class="tag next">${tc.tagTemp}</span>`);
+  if (s.nt) tags.push(`<span class="tag next">${tc.tagNova}</span>`);
 
   // Episodes
   const epsText = s.e ? `📽 ${s.e} ep.` : '';
