@@ -768,7 +768,7 @@ const i18n = {
     totes: 'Totes', btnVistes: '✅ Vistes', btnVeient: '▶️ Veient',
     btnPendents: '🔵 Pendents', btnNovaTemp: '🔔 Pend. nova temp.', btnAnim: '🎨 Animació',
     totesPlat: 'Totes les plataformes', ordenar: 'Ordenar:',
-    sortMedia: 'Mitjana ↓', sortEps: 'Més episodis',
+    sortMedia: 'Mitjana ↓', sortEps: 'Més episodis', labelMitjana: 'Mitjana',
     mostrant: (n, t) => `Mostrant <strong>${n}</strong> de <strong>${t}</strong> sèries`,
     pagina: (c, t) => `Pàgina ${c} de ${t}`,
     carregant: 'Carregant...',
@@ -789,7 +789,7 @@ const i18n = {
     totes: 'Todas', btnVistes: '✅ Vistas', btnVeient: '▶️ Viendo',
     btnPendents: '🔵 Pendientes', btnNovaTemp: '🔔 Pend. nueva temp.', btnAnim: '🎨 Animación',
     totesPlat: 'Todas las plataformas', ordenar: 'Ordenar:',
-    sortMedia: 'Media ↓', sortEps: 'Más episodios',
+    sortMedia: 'Media ↓', sortEps: 'Más episodios', labelMitjana: 'Media',
     mostrant: (n, t) => `Mostrando <strong>${n}</strong> de <strong>${t}</strong> series`,
     pagina: (c, t) => `Página ${c} de ${t}`,
     carregant: 'Cargando...',
@@ -1019,7 +1019,7 @@ function renderCard(s) {
       </div>
       <div class="scores">
         <div class="score-block">
-          <span class="score-label">Media</span>
+          <span class="score-label">${i18n[lang].labelMitjana}</span>
           <span class="score-val media-val ${mediaDisp === '—' ? 'na' : ''}">${mediaDisp}</span>
         </div>
         <div class="score-bar-wrap">
