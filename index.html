@@ -712,7 +712,7 @@
   <select class="select-styled" id="platformFilter" onchange="applyFilters()">
     <option value="">Todas las plataformas</option>
     <option>Netflix</option>
-    <option>Amazon</option>
+    <option>Prime Video</option>
     <option>HBO MAX</option>
     <option>Disney+</option>
     <option>Movistar+</option>
@@ -854,7 +854,7 @@ function getMainPlatform(p) {
   if (!p || p === '?') return 'Otra';
   const l = p.toLowerCase();
   if (l.includes('netflix')) return 'Netflix';
-  if (l.includes('amazon')) return 'Amazon';
+  if (l.includes('amazon') || l.includes('prime video') || l.includes('primevideo')) return 'Prime Video';
   if (l.includes('disney')) return 'Disney+';
   if (l.includes('max') && !l.includes('moviestar')) return 'HBO MAX';
   if (l.includes('apple')) return 'Apple TV';
@@ -1046,7 +1046,7 @@ function renderCard(s) {
 
 const PLAT_CFG = {
   'Netflix':    { si: 'netflix',          color: 'E50914' },
-  'Amazon':     { si: 'amazonprimevideo', color: '00A8E1' },
+  'Prime Video':{ si: 'primevideo',        color: '00A8E1' },
   'HBO MAX':    { si: 'hbomax',            color: '002BE7' },
   'Disney+':    { badge: 'Disney+', bg: '#0063e5', fg: '#fff' },
   'Apple TV':   { si: 'appletv',          color: '000000' },
@@ -1128,7 +1128,7 @@ function goPage(p) {
         <label class="full">Plataforma
           <div class="plat-checkboxes">
             <label class="plat-cb"><input type="checkbox" name="plat" value="Netflix"> Netflix</label>
-            <label class="plat-cb"><input type="checkbox" name="plat" value="Amazon"> Amazon</label>
+            <label class="plat-cb"><input type="checkbox" name="plat" value="Prime Video"> Prime Video</label>
             <label class="plat-cb"><input type="checkbox" name="plat" value="HBO MAX"> HBO MAX</label>
             <label class="plat-cb"><input type="checkbox" name="plat" value="Disney+"> Disney+</label>
             <label class="plat-cb"><input type="checkbox" name="plat" value="Movistar+"> Movistar+</label>
