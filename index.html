@@ -598,10 +598,13 @@
       <div class="logo-icon">📺</div>
       <div class="logo-text">
         <h1>SERIES TONI</h1>
-        <p>Mi colección personal</p>
+        <p id="subtitle">Mi colección personal</p>
       </div>
     </div>
-    <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Cambiar tema">🌙</button>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn-theme" id="btnLang" onclick="toggleLang()" title="Canviar idioma" style="font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;width:auto;padding:0 10px;">ES</button>
+      <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Canviar tema">🌙</button>
+    </div>
   </div>
   <div class="stats-row" id="statsRow"></div>
 </div>
@@ -635,7 +638,7 @@
     <option>Otra</option>
   </select>
 
-  <span class="sort-label">Ordenar:</span>
+  <span class="sort-label" id="sortLabel">Ordenar:</span>
   <select class="select-styled" id="sortFilter" onchange="applyFilters()">
     <option value="media">Media ↓</option>
     <option value="imdb">IMDB ↓</option>
@@ -655,37 +658,110 @@
 <div class="pagination" id="pagination"></div>
 
 <script>
-// Theme
+// Theme — default light
 const savedTheme = localStorage.getItem('theme');
-if (savedTheme === 'light') document.documentElement.classList.add('light');
+if (savedTheme === 'dark') document.documentElement.classList.remove('light');
+else document.documentElement.classList.add('light');
 
 function toggleTheme() {
   const isLight = document.documentElement.classList.toggle('light');
   localStorage.setItem('theme', isLight ? 'light' : 'dark');
   document.getElementById('btnTheme').textContent = isLight ? '☀️' : '🌙';
 }
-
-// Init button icon
 document.getElementById('btnTheme').textContent =
   document.documentElement.classList.contains('light') ? '☀️' : '🌙';
+
+// i18n
+const i18n = {
+  ca: {
+    subtitle: 'La meva col·lecció personal',
+    series: 'sèries', vistes: 'vistes', veient: 'veient',
+    pendents: 'pendents', animacio: 'animació',
+    searchPlaceholder: 'Cercar sèrie, plataforma...',
+    totes: 'Totes', btnVistes: '✅ Vistes', btnVeient: '▶️ Veient',
+    btnPendents: '🔵 Pendents', btnAnim: '🎨 Animació',
+    totesPlat: 'Totes les plataformes', ordenar: 'Ordenar:',
+    sortMedia: 'Mitjana ↓', sortEps: 'Més episodis',
+    mostrant: (n, t) => `Mostrant <strong>${n}</strong> de <strong>${t}</strong> sèries`,
+    pagina: (c, t) => `Pàgina ${c} de ${t}`,
+    carregant: 'Carregant...',
+    tagVeient: '▶ Veient', tagVista: '✓ Vista', tagPendent: 'Pendent',
+    tagAnim: 'Anim.', tagTemp: '2a temp.',
+    estrena: 'Estrena:', emptyTitle: 'Sense resultats',
+    emptyMsg: 'Prova altres filtres o cerca',
+    errorTitle: 'Error en carregar dades',
+    errorMsg: "Assegura't de servir els fitxers des d'un servidor web.",
+    primera: '« Primera', anterior: '‹ Anterior',
+    seguent: 'Següent ›', ultima: 'Última »',
+  },
+  es: {
+    subtitle: 'Mi colección personal',
+    series: 'series', vistes: 'vistas', veient: 'viendo',
+    pendents: 'pendientes', animacio: 'animación',
+    searchPlaceholder: 'Buscar serie, plataforma...',
+    totes: 'Todas', btnVistes: '✅ Vistas', btnVeient: '▶️ Viendo',
+    btnPendents: '🔵 Pendientes', btnAnim: '🎨 Animación',
+    totesPlat: 'Todas las plataformas', ordenar: 'Ordenar:',
+    sortMedia: 'Media ↓', sortEps: 'Más episodios',
+    mostrant: (n, t) => `Mostrando <strong>${n}</strong> de <strong>${t}</strong> series`,
+    pagina: (c, t) => `Página ${c} de ${t}`,
+    carregant: 'Cargando...',
+    tagVeient: '▶ Viendo', tagVista: '✓ Vista', tagPendent: 'Pendiente',
+    tagAnim: 'Anim.', tagTemp: '2ª temp.',
+    estrena: 'Estreno:', emptyTitle: 'Sin resultados',
+    emptyMsg: 'Prueba otros filtros o búsqueda',
+    errorTitle: 'Error al cargar datos',
+    errorMsg: 'Asegúrate de servir los ficheros desde un servidor web.',
+    primera: '« Primera', anterior: '‹ Anterior',
+    seguent: 'Siguiente ›', ultima: 'Última »',
+  }
+};
+
+let lang = localStorage.getItem('lang') || 'ca';
+
+function applyLang() {
+  const t = i18n[lang];
+  document.getElementById('subtitle').textContent = t.subtitle;
+  document.getElementById('searchInput').placeholder = t.searchPlaceholder;
+  const estadoBtns = document.querySelectorAll('#estadoGroup .btn-filter');
+  estadoBtns[0].textContent = t.totes;
+  estadoBtns[1].textContent = t.btnVistes;
+  estadoBtns[2].textContent = t.btnVeient;
+  estadoBtns[3].textContent = t.btnPendents;
+  document.getElementById('btnAnim').textContent = t.btnAnim;
+  document.querySelector('#platformFilter option:first-child').textContent = t.totesPlat;
+  document.getElementById('sortLabel').textContent = t.ordenar;
+  document.querySelector('#sortFilter option[value="media"]').textContent = t.sortMedia;
+  document.querySelector('#sortFilter option[value="episodios"]').textContent = t.sortEps;
+  document.getElementById('btnLang').textContent = lang === 'ca' ? 'ES' : 'CA';
+  localStorage.setItem('lang', lang);
+  if (SERIES_DATA.length > 0) { renderStats(); renderResults(); }
+  else document.getElementById('resultCount').textContent = t.carregant;
+}
+
+function toggleLang() {
+  lang = lang === 'ca' ? 'es' : 'ca';
+  applyLang();
+}
 
 let SERIES_DATA = [];
 
 fetch('series.json', { cache: 'no-store' })
   .then(r => {
-    if (!r.ok) throw new Error('Error cargando datos');
+    if (!r.ok) throw new Error('Error');
     return r.json();
   })
   .then(data => {
     SERIES_DATA = data;
     SERIES_DATA.forEach(s => { s.pm = getMainPlatform(s.p); });
-    renderStats();
+    applyLang();
     applyFilters();
   })
-  .catch(err => {
-    document.getElementById('gridContainer').innerHTML = 
-      '<div class="empty-state" style="grid-column:1/-1"><div class="emoji">⚠️</div><h3>Error al cargar datos</h3><p>Asegúrate de servir los ficheros desde un servidor web (no abrir el HTML directamente).</p></div>';
-    document.getElementById('resultCount').textContent = 'Error al cargar series.json';
+  .catch(() => {
+    const t = i18n[lang];
+    document.getElementById('gridContainer').innerHTML =
+      `<div class="empty-state" style="grid-column:1/-1"><div class="emoji">⚠️</div><h3>${t.errorTitle}</h3><p>${t.errorMsg}</p></div>`;
+    document.getElementById('resultCount').textContent = t.errorTitle;
   });
 
 const PAGE_SIZE = 60;
@@ -711,6 +787,7 @@ function getMainPlatform(p) {
 
 
 function renderStats() {
+  const t = i18n[lang];
   const total = SERIES_DATA.length;
   const vistas = SERIES_DATA.filter(s => s.v && !s.w).length;
   const viendo = SERIES_DATA.filter(s => s.w).length;
@@ -718,11 +795,11 @@ function renderStats() {
   const anim = SERIES_DATA.filter(s => s.a).length;
 
   document.getElementById('statsRow').innerHTML = `
-    <div class="stat-pill"><div class="stat-dot total"></div><strong>${total.toLocaleString()}</strong><span>series</span></div>
-    <div class="stat-pill"><div class="stat-dot vista"></div><strong>${vistas}</strong><span>vistas</span></div>
-    <div class="stat-pill"><div class="stat-dot viendo"></div><strong>${viendo}</strong><span>viendo</span></div>
-    <div class="stat-pill"><div class="stat-dot pendiente"></div><strong>${pendientes}</strong><span>pendientes</span></div>
-    <div class="stat-pill"><div class="stat-dot anim"></div><strong>${anim}</strong><span>animación</span></div>
+    <div class="stat-pill"><div class="stat-dot total"></div><strong>${total.toLocaleString()}</strong><span>${t.series}</span></div>
+    <div class="stat-pill"><div class="stat-dot vista"></div><strong>${vistas}</strong><span>${t.vistes}</span></div>
+    <div class="stat-pill"><div class="stat-dot viendo"></div><strong>${viendo}</strong><span>${t.veient}</span></div>
+    <div class="stat-pill"><div class="stat-dot pendiente"></div><strong>${pendientes}</strong><span>${t.pendents}</span></div>
+    <div class="stat-pill"><div class="stat-dot anim"></div><strong>${anim}</strong><span>${t.animacio}</span></div>
   `;
 }
 
@@ -779,16 +856,15 @@ function renderResults() {
   const start = (currentPage - 1) * PAGE_SIZE;
   const page = filtered.slice(start, start + PAGE_SIZE);
 
-  document.getElementById('resultCount').innerHTML =
-    `Mostrando <strong>${page.length}</strong> de <strong>${total}</strong> series`;
-
-  document.getElementById('pageInfo').innerHTML = totalPages > 1
-    ? `Página ${currentPage} de ${totalPages}` : '';
+  const t = i18n[lang];
+  document.getElementById('resultCount').innerHTML = t.mostrant(page.length, total);
+  document.getElementById('pageInfo').innerHTML = totalPages > 1 ? t.pagina(currentPage, totalPages) : '';
 
   const container = document.getElementById('gridContainer');
 
   if (page.length === 0) {
-    container.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="emoji">🎬</div><h3>Sin resultados</h3><p>Prueba otros filtros o búsqueda</p></div>`;
+    const te = i18n[lang];
+    container.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="emoji">🎬</div><h3>${te.emptyTitle}</h3><p>${te.emptyMsg}</p></div>`;
     document.getElementById('pagination').innerHTML = '';
     return;
   }
@@ -818,12 +894,13 @@ function renderCard(s) {
     : `<div class="poster"><div class="poster-fallback">${posterInitial}</div></div>`;
 
   // Tags
+  const tc = i18n[lang];
   const tags = [];
-  if (s.w) tags.push('<span class="tag viendo">▶ Viendo</span>');
-  else if (s.v) tags.push('<span class="tag vista">✓ Vista</span>');
-  else tags.push('<span class="tag pendiente">Pendiente</span>');
-  if (s.a) tags.push('<span class="tag anim">Anim.</span>');
-  if (s.s && s.s !== '' && s.s.toLowerCase() !== 'nan') tags.push('<span class="tag next">2ª temp.</span>');
+  if (s.w) tags.push(`<span class="tag viendo">${tc.tagVeient}</span>`);
+  else if (s.v) tags.push(`<span class="tag vista">${tc.tagVista}</span>`);
+  else tags.push(`<span class="tag pendiente">${tc.tagPendent}</span>`);
+  if (s.a) tags.push(`<span class="tag anim">${tc.tagAnim}</span>`);
+  if (s.s && s.s !== '' && s.s.toLowerCase() !== 'nan') tags.push(`<span class="tag next">${tc.tagTemp}</span>`);
 
   // Episodes
   const epsText = s.e ? `📽 ${s.e} ep.` : '';
@@ -831,7 +908,7 @@ function renderCard(s) {
   // Estreno note
   let estrenoNote = '';
   if (s.es && s.es !== '' && s.es !== 'nan') {
-    estrenoNote = `<div class="estreno-note">📅 Estreno: ${escHtml(s.es)}</div>`;
+    estrenoNote = `<div class="estreno-note">📅 ${tc.estrena} ${escHtml(s.es)}</div>`;
   }
 
   return `
@@ -880,12 +957,13 @@ function escHtml(str) {
 
 function renderPagination(cur, total) {
   if (total <= 1) { document.getElementById('pagination').innerHTML = ''; return; }
+  const tp = i18n[lang];
   document.getElementById('pagination').innerHTML = `
-    <button class="btn-page" onclick="goPage(1)" ${cur===1?'disabled':''}>« Primera</button>
-    <button class="btn-page" onclick="goPage(${cur-1})" ${cur===1?'disabled':''}>‹ Anterior</button>
+    <button class="btn-page" onclick="goPage(1)" ${cur===1?'disabled':''}>${tp.primera}</button>
+    <button class="btn-page" onclick="goPage(${cur-1})" ${cur===1?'disabled':''}>${tp.anterior}</button>
     <span>${cur} / ${total}</span>
-    <button class="btn-page" onclick="goPage(${cur+1})" ${cur===total?'disabled':''}>Siguiente ›</button>
-    <button class="btn-page" onclick="goPage(${total})" ${cur===total?'disabled':''}>Última »</button>
+    <button class="btn-page" onclick="goPage(${cur+1})" ${cur===total?'disabled':''}>${tp.seguent}</button>
+    <button class="btn-page" onclick="goPage(${total})" ${cur===total?'disabled':''}>${tp.ultima}</button>
   `;
 }
 
