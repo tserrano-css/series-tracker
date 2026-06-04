@@ -30,6 +30,25 @@
     --fa: #0065b0;
   }
 
+  :root.light {
+    --bg: #f4f4f8;
+    --surface: #ffffff;
+    --surface2: #eaeaf0;
+    --border: #d0d0e0;
+    --accent: #c9a800;
+    --accent2: #ff6b35;
+    --accent3: #2aaba2;
+    --text: #1a1a2e;
+    --text-dim: #555566;
+    --text-muted: #9999aa;
+    --vista: #16a34a;
+    --pendiente: #2563eb;
+    --viendo: #ea7316;
+    --card-hover: #ebebf5;
+    --imdb: #c9a800;
+    --fa: #0065b0;
+  }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
@@ -40,9 +59,28 @@
     overflow-x: hidden;
   }
 
+  /* THEME TOGGLE */
+  .btn-theme {
+    position: fixed;
+    top: 14px;
+    right: 16px;
+    z-index: 200;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-dim);
+    padding: 8px 12px;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.15s;
+    line-height: 1;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  }
+  .btn-theme:hover { border-color: var(--accent); color: var(--text); }
+
   /* HEADER */
   .header {
-    background: linear-gradient(135deg, #0a0a0f 0%, #12121a 50%, #0f0f1a 100%);
+    background: linear-gradient(135deg, var(--bg) 0%, var(--surface) 50%, var(--bg) 100%);
     border-bottom: 1px solid var(--border);
     padding: 28px 32px 20px;
     position: sticky;
@@ -554,6 +592,8 @@
 </head>
 <body>
 
+<button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Cambiar tema">🌙</button>
+
 <div class="header">
   <div class="header-top">
     <div class="logo">
@@ -616,6 +656,20 @@
 <div class="pagination" id="pagination"></div>
 
 <script>
+// Theme
+const savedTheme = localStorage.getItem('theme');
+if (savedTheme === 'light') document.documentElement.classList.add('light');
+
+function toggleTheme() {
+  const isLight = document.documentElement.classList.toggle('light');
+  localStorage.setItem('theme', isLight ? 'light' : 'dark');
+  document.getElementById('btnTheme').textContent = isLight ? '☀️' : '🌙';
+}
+
+// Init button icon
+document.getElementById('btnTheme').textContent =
+  document.documentElement.classList.contains('light') ? '☀️' : '🌙';
+
 let SERIES_DATA = [];
 
 fetch('series.json', { cache: 'no-store' })
