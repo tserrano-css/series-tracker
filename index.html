@@ -1047,14 +1047,14 @@ function renderCard(s) {
 
 const PLAT_CFG = {
   'Netflix':    { si: 'netflix',          color: 'E50914' },
-  'Prime Video':{ wm: 'https://upload.wikimedia.org/wikipedia/commons/1/11/Amazon_Prime_Video_logo.svg' },
-  'HBO MAX':    { si: 'hbomax',            color: '002BE7' },
-  'Disney+':    { wm: 'https://upload.wikimedia.org/wikipedia/commons/3/3e/Disney%2B_logo.svg' },
-  'Apple TV':   { si: 'appletv',          color: '000000' },
-  'Crunchyroll':{ si: 'crunchyroll',      color: 'F47521' },
-  'SkyShowtime':{ wm: 'https://upload.wikimedia.org/wikipedia/commons/8/80/SkyShowtime_Logo.svg' },
-  'Movistar+':  { wm: 'https://upload.wikimedia.org/wikipedia/commons/1/1d/Movistar_Plus%2B_2022_logo.svg' },
-  'Filmin':     { wm: 'https://upload.wikimedia.org/wikipedia/commons/f/f5/Logo_Filmin_2023.png' },
+  'Prime Video':{ wm: 'https://upload.wikimedia.org/wikipedia/commons/1/11/Amazon_Prime_Video_logo.svg', h: 14 },
+  'HBO MAX':    { si: 'hbomax',            color: '002BE7', h: 24 },
+  'Disney+':    { wm: 'https://upload.wikimedia.org/wikipedia/commons/3/3e/Disney%2B_logo.svg', h: 16 },
+  'Apple TV':   { si: 'appletv',          color: '000000', h: 18 },
+  'Crunchyroll':{ si: 'crunchyroll',      color: 'F47521', h: 18 },
+  'SkyShowtime':{ wm: 'https://upload.wikimedia.org/wikipedia/commons/8/80/SkyShowtime_Logo.svg', h: 14 },
+  'Movistar+':  { wm: 'https://upload.wikimedia.org/wikipedia/commons/1/1d/Movistar_Plus%2B_2022_logo.svg', h: 16 },
+  'Filmin':     { wm: 'https://upload.wikimedia.org/wikipedia/commons/f/f5/Logo_Filmin_2023.png', h: 12 },
   'TV España':  { badge: 'TVE',    bg: '#C60B1E', fg: '#fff' },
 };
 
@@ -1065,10 +1065,15 @@ function platformBadge(raw) {
     const pm = getMainPlatform(p);
     const cfg = PLAT_CFG[pm];
     if (cfg?.si) {
-      const style = cfg.bg ? ` style="background:${cfg.bg};border-radius:3px;padding:2px"` : '';
+      const h = cfg.h ? `height:${cfg.h}px;` : '';
+      const bg = cfg.bg ? `background:${cfg.bg};border-radius:3px;padding:2px;` : '';
+      const style = (h || bg) ? ` style="${h}${bg}"` : '';
       return `<img src="https://cdn.simpleicons.org/${cfg.si}/${cfg.color}" class="plat-icon" title="${escHtml(p)}" alt="${escHtml(pm)}" loading="lazy"${style}>`;
     }
-    if (cfg?.wm) return `<img src="${cfg.wm}" class="plat-icon" title="${escHtml(p)}" alt="${escHtml(pm)}" loading="lazy">`;
+    if (cfg?.wm) {
+      const h = cfg.h ? ` style="height:${cfg.h}px"` : '';
+      return `<img src="${cfg.wm}" class="plat-icon" title="${escHtml(p)}" alt="${escHtml(pm)}" loading="lazy"${h}>`;
+    }
     if (cfg?.badge) return `<span class="plat-badge" style="background:${cfg.bg};color:${cfg.fg}" title="${escHtml(p)}">${cfg.badge}</span>`;
     return `<span class="plat-badge" title="${escHtml(p)}">${escHtml(pm || p)}</span>`;
   }).join('');
