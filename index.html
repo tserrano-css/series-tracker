@@ -620,7 +620,7 @@
     <option value="">Todas las plataformas</option>
     <option>Netflix</option>
     <option>Amazon</option>
-    <option>MAX</option>
+    <option>HBO MAX</option>
     <option>Disney+</option>
     <option>Movistar+</option>
     <option>Filmin</option>
@@ -763,7 +763,7 @@ function getMainPlatform(p) {
   if (l.includes('netflix')) return 'Netflix';
   if (l.includes('amazon')) return 'Amazon';
   if (l.includes('disney')) return 'Disney+';
-  if (l.includes('max') && !l.includes('moviestar')) return 'MAX';
+  if (l.includes('max') && !l.includes('moviestar')) return 'HBO MAX';
   if (l.includes('apple')) return 'Apple TV';
   if (l.includes('moviestar')) return 'Movistar+';
   if (l.includes('filmin')) return 'Filmin';
@@ -953,7 +953,7 @@ function renderCard(s) {
 const PLAT_CFG = {
   'Netflix':    { si: 'netflix',          color: 'E50914' },
   'Amazon':     { si: 'amazonprimevideo', color: '00A8E1' },
-  'MAX':        { si: 'max',              color: '002BE7' },
+  'HBO MAX':    { si: 'hbomax',            color: '002BE7' },
   'Disney+':    { si: 'disneyplus',       color: '113CCF' },
   'Apple TV':   { si: 'appletv',          color: '000000' },
   'Crunchyroll':{ si: 'crunchyroll',      color: 'F47521' },
