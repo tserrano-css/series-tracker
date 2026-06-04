@@ -437,9 +437,13 @@
   .mini-bar-label {
     font-size: 10px;
     color: var(--text-muted);
-    width: 24px;
+    width: 36px;
     text-align: right;
+    text-decoration: none;
+    font-weight: 600;
+    letter-spacing: 0;
   }
+  a.mini-bar-label:hover { text-decoration: underline; opacity: .8; }
 
   .mini-bar {
     flex: 1;
@@ -1030,17 +1034,17 @@ function renderCard(s) {
         </div>
         <div class="score-bar-wrap">
           <div class="mini-bar-row">
-            <span class="mini-bar-label" style="color:var(--imdb);font-size:9px;font-weight:600">IMDb</span>
+            ${s.u ? `<a href="${escHtml(s.u)}" target="_blank" rel="noopener" class="mini-bar-label" style="color:var(--imdb)">IMDb</a>` : `<span class="mini-bar-label" style="color:var(--imdb)">IMDb</span>`}
             <div class="mini-bar"><div class="mini-bar-fill imdb" style="width:${imdbPct}%"></div></div>
             <span class="mini-bar-val">${imdbDisp}</span>
           </div>
           <div class="mini-bar-row">
-            <span class="mini-bar-label" style="color:#60a5fa;font-size:9px;font-weight:600">FA</span>
+            <span class="mini-bar-label" style="color:#60a5fa">FA</span>
             <div class="mini-bar"><div class="mini-bar-fill fa" style="width:${faPct}%"></div></div>
             <span class="mini-bar-val">${faDisp}</span>
           </div>
           ${s.tm ? `<div class="mini-bar-row">
-            <span class="mini-bar-label" style="color:#01d277;font-size:9px;font-weight:600">TM</span>
+            ${s.tmid ? `<a href="https://www.themoviedb.org/${s.tmtype||'tv'}/${s.tmid}" target="_blank" rel="noopener" class="mini-bar-label" style="color:#01d277">TMDB</a>` : `<span class="mini-bar-label" style="color:#01d277">TMDB</span>`}
             <div class="mini-bar"><div class="mini-bar-fill tm" style="width:${tmPct}%"></div></div>
             <span class="mini-bar-val">${tmDisp}</span>
           </div>` : ''}
