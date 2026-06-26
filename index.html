@@ -715,6 +715,7 @@
     <button class="btn-filter" onclick="setFilter('estado','nova_temp',this)">🔔 Pend. nova temp.</button>
   </div>
   <button class="btn-filter" id="btnAnim" onclick="toggleAnim(this)">🎨 Animación</button>
+  <button class="btn-filter" id="btnEstrena" onclick="toggleEstrena(this)">📅 Estreno</button>
 
   <select class="select-styled" id="platformFilter" onchange="applyFilters()">
     <option value="">Todas las plataformas</option>
@@ -774,7 +775,7 @@ const i18n = {
     pendents: 'pendents', novaTemp: 'nova temp.', animacio: 'animació',
     searchPlaceholder: 'Cercar sèrie, plataforma...',
     totes: 'Totes', btnVistes: '✅ Vistes', btnVeient: '▶️ Veient',
-    btnPendents: '🔵 Pendents', btnNovaTemp: '🔔 Pend. nova temp.', btnAnim: '🎨 Animació',
+    btnPendents: '🔵 Pendents', btnNovaTemp: '🔔 Pend. nova temp.', btnAnim: '🎨 Animació', btnEstrena: '📅 Estrena',
     totesPlat: 'Totes les plataformes', ordenar: 'Ordenar:',
     sortMedia: 'Mitjana ↓', sortEps: 'Més episodis', labelMitjana: 'Mitjana',
     mostrant: (n, t) => `Mostrant <strong>${n}</strong> de <strong>${t}</strong> sèries`,
@@ -795,7 +796,7 @@ const i18n = {
     pendents: 'pendientes', novaTemp: 'nueva temp.', animacio: 'animación',
     searchPlaceholder: 'Buscar serie, plataforma...',
     totes: 'Todas', btnVistes: '✅ Vistas', btnVeient: '▶️ Viendo',
-    btnPendents: '🔵 Pendientes', btnNovaTemp: '🔔 Pend. nueva temp.', btnAnim: '🎨 Animación',
+    btnPendents: '🔵 Pendientes', btnNovaTemp: '🔔 Pend. nueva temp.', btnAnim: '🎨 Animación', btnEstrena: '📅 Estreno',
     totesPlat: 'Todas las plataformas', ordenar: 'Ordenar:',
     sortMedia: 'Media ↓', sortEps: 'Más episodios', labelMitjana: 'Media',
     mostrant: (n, t) => `Mostrando <strong>${n}</strong> de <strong>${t}</strong> series`,
@@ -857,7 +858,7 @@ fetch('series.json', { cache: 'no-store' })
 const PAGE_SIZE = 60;
 let currentPage = 1;
 let filtered = [];
-let activeFilters = { estado: 'all', animacion: false };
+let activeFilters = { estado: 'all', animacion: false, estrena: false };
 
 function getMainPlatform(p) {
   if (!p || p === '?') return 'Otra';
@@ -892,6 +893,8 @@ function renderStats() {
   btns[3].textContent = `${t.btnPendents} (${pendents})`;
   btns[4].textContent = `${t.btnNovaTemp} (${novaTemp})`;
   document.getElementById('btnAnim').textContent = `${t.btnAnim} (${anim})`;
+  const estrenaCount = SERIES_DATA.filter(s => s.es && s.es.trim()).length;
+  document.getElementById('btnEstrena').textContent = `${t.btnEstrena} (${estrenaCount})`;
 }
 
 function setFilter(key, val, el) {
@@ -909,6 +912,13 @@ function toggleAnim(el) {
   applyFilters();
 }
 
+function toggleEstrena(el) {
+  activeFilters.estrena = !activeFilters.estrena;
+  el.classList.toggle('active', activeFilters.estrena);
+  currentPage = 1;
+  applyFilters();
+}
+
 function applyFilters() {
   const q = document.getElementById('searchInput').value.toLowerCase().trim();
   const plat = document.getElementById('platformFilter').value;
@@ -922,6 +932,7 @@ function applyFilters() {
     if (estado === 'pendiente' && s.v) return false;
     if (estado === 'nova_temp' && !s.nt) return false;
     if (soloAnim && !s.a) return false;
+    if (activeFilters.estrena && !(s.es && s.es.trim())) return false;
     if (plat && s.pm !== plat) return false;
     if (q && !s.t.toLowerCase().includes(q) && !s.p.toLowerCase().includes(q)) return false;
     return true;
