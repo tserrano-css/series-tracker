@@ -33,7 +33,23 @@ _driver_lock = threading.Lock()
 
 
 def get_driver():
+    """Return a live browser session, recreating it if the previous one died.
+
+    undetected-chromedriver drives a *visible* Chrome window; if it gets closed
+    (manually, or by a crash) the session becomes invalid and every scrape
+    returns None forever. So we probe the session on each use and respawn it
+    when it's dead, instead of only creating one when `_driver is None`."""
     global _driver
+    if _driver is not None:
+        try:
+            _ = _driver.current_url        # cheap liveness probe
+        except Exception:
+            print('  Sessió de navegador morta → recreant-la…')
+            try:
+                _driver.quit()
+            except Exception:
+                pass
+            _driver = None
     if _driver is None:
         import fetch_filmaffinity as F
         _driver = F.make_driver()
@@ -117,10 +133,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
 
     def _send_json(self, obj, status=200):
-        self.send_response(status)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(json.dumps(obj).encode())
+        try:
+            self.send_response(status)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(obj).encode())
+        except (ConnectionResetError, BrokenPipeError):
+            # El navegador ha tancat la connexió (p.ex. clics solapats mentre
+            # una crida lenta encara corria). No cal fer soroll.
+            print('  (client desconnectat abans de rebre la resposta)')
 
     def do_GET(self):
         parsed = urlparse(self.path)

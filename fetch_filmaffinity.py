@@ -60,15 +60,34 @@ def extract_score(html):
     return None
 
 
+def _on_cloudflare(html):
+    low = html.lower()
+    return 'just a moment' in low or 'challenge-platform' in low or 'cf-challenge' in low
+
+
+def poll_page(driver, checker, tries=8, wait=1.5):
+    """Poll driver.page_source until `checker(html)` returns non-None, waiting
+    while Cloudflare's 'Just a moment…' interstitial is still up. Returns the
+    checker's value, or None if it never appeared within tries*wait seconds."""
+    for _ in range(tries):
+        html = driver.page_source
+        if not _on_cloudflare(html):
+            val = checker(html)
+            if val is not None:
+                return val
+        time.sleep(wait)
+    return checker(driver.page_source)
+
+
 def imdb_score(driver, imdb_url):
     """Fetch the IMDB rating from an IMDB title URL (real browser bypasses 503)."""
+    def _score(html):
+        m = re.search(r'"aggregateRating":\{[^}]*"ratingValue":([\d.]+)', html)
+        return float(m.group(1)) if m else None
     try:
         driver.get(imdb_url)
-        time.sleep(3)
-        html = driver.page_source
-        m = re.search(r'"aggregateRating":\{[^}]*"ratingValue":([\d.]+)', html)
-        if m:
-            return float(m.group(1))
+        time.sleep(1.5)
+        return poll_page(driver, _score)
     except Exception as e:
         print(f'  Error: {e}')
     return None
@@ -106,8 +125,8 @@ def score_from_url(driver, fa_url):
     """Fetch the score directly from a known Filmaffinity film URL."""
     try:
         driver.get(fa_url)
-        time.sleep(2)
-        return extract_score(driver.page_source)
+        time.sleep(1)
+        return poll_page(driver, extract_score)
     except Exception as e:
         print(f'  Error: {e}')
     return None
@@ -119,7 +138,17 @@ def search_score(driver, title, year=None):
     try:
         url = f'https://www.filmaffinity.com/es/search.php?stext={quote(title)}&stype=title'
         driver.get(url)
-        time.sleep(2.5)
+        time.sleep(1)
+
+        # Wait past Cloudflare until the page is either a film sheet (has a
+        # score) or a results list (has result blocks).
+        def _ready(html):
+            if extract_score(html) is not None:
+                return 'film'
+            if parse_results(html):
+                return 'results'
+            return None
+        poll_page(driver, _ready)
         html = driver.page_source
 
         # Case 1: the search redirected straight to a single film page
@@ -132,8 +161,8 @@ def search_score(driver, title, year=None):
         if fid:
             film_url = f'https://www.filmaffinity.com/es/{fid}'
             driver.get(film_url)
-            time.sleep(2)
-            return extract_score(driver.page_source), film_url
+            time.sleep(1)
+            return poll_page(driver, extract_score), film_url
     except Exception as e:
         print(f'  Error: {e}')
     return None, None

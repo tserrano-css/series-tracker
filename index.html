@@ -1441,6 +1441,7 @@ async function updateSingleScores() {
   }
 
   // ── 2. IMDb + Filmaffinity — només en local (via navegador real de local_server.py) ──
+  let localError = null;   // missatge d'error si la part local falla (per no dir "sense canvis" enganyós)
   if (isLocal) {
     statusEl.textContent = '⏳ IMDb i Filmaffinity (navegador real)…';
     try {
@@ -1453,6 +1454,11 @@ async function updateSingleScores() {
       const res = await fetch(`${LOCAL_API}/fetch-scores?${params}`);
       if (res.ok) {
         const d = await res.json();
+        if (d.error) {
+          localError = d.error;
+        } else if (!d.imdb && !d.fa && !d.fa_url) {
+          localError = 'IMDb/Filmaffinity no han retornat cap dada (Cloudflare?). Torna-ho a provar.';
+        }
         if (d.imdb) {
           if (d.imdb !== num('editImdb')) fmt('IMDb', num('editImdb'), d.imdb);
           setVal('editImdb', d.imdb);
@@ -1465,14 +1471,21 @@ async function updateSingleScores() {
           fmt('URL FA', '—', 'desada');
           setVal('editFaUrl', d.fa_url);
         }
+      } else {
+        localError = `El servidor local ha respost ${res.status}. Torna-ho a provar (no facis clics solapats).`;
       }
-    } catch (e) { /* local_server.py no actiu */ }
+    } catch (e) {
+      localError = 'No s\'ha pogut contactar amb local_server.py (està engegat?).';
+    }
   }
 
   // La mitjana es recalcula automàticament al desar (saveEdit).
   btn.disabled = false;
   if (changes.length) {
     statusEl.innerHTML = '✓ ' + changes.join(' · ') + (isLocal ? '' : ' · (IMDb/FA només en local)');
+    if (localError) statusEl.innerHTML += ` · ⚠️ ${localError}`;
+  } else if (localError) {
+    statusEl.textContent = '⚠️ ' + localError;
   } else {
     statusEl.textContent = isLocal ? '✓ Sense canvis (ja estava actualitzat)' : '✓ TMDB actualitzat. Obre en local per IMDb i Filmaffinity.';
   }
