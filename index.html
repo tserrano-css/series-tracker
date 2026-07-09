@@ -1153,6 +1153,10 @@ function goPage(p) {
         <label class="full">Títol
           <input id="editTitle" type="text" required placeholder="Nom de la sèrie">
         </label>
+        <div class="full" id="editUpdateRow" style="display:none">
+          <button type="button" class="btn-adm" onclick="updateSingleScores()" id="btnUpdateSingle">🔄 Actualitzar puntuació TMDB i episodis</button>
+          <span id="updateSingleStatus" style="font-size:12px;color:var(--text-muted);margin-left:8px"></span>
+        </div>
         <label>Estat
           <select id="editEstat">
             <option value="No comencada">No comencada</option>
@@ -1259,7 +1263,8 @@ function goPage(p) {
 <div id="filmModal" class="modal-overlay" style="display:none" onclick="if(event.target===this&&!filmRunning)this.style.display='none'">
   <div class="modal-box" style="max-width:480px">
     <h3 style="margin:0 0 12px">🎬 Actualitzar Filmaffinity</h3>
-    <p style="margin:0 0 8px;color:var(--text-muted);font-size:13px">Executa <code>fetch_filmaffinity.py</code> al teu PC via scraping (~1 seg/sèrie). Aquest botó només funciona quan obres la web en local amb <code>local_server.py</code>.</p>
+    <p style="margin:0 0 8px;color:var(--text-muted);font-size:13px">Executa <code>fetch_filmaffinity.py</code> al teu PC via scraping. Aquest botó només funciona quan obres la web en local amb <code>local_server.py</code>.</p>
+    <p style="margin:0 0 8px;color:#f59e0b;font-size:12px">⚠️ Filmaffinity bloqueja el scraping amb Cloudflare — actualment aquest script sol trobar 0 resultats. Es manté per si es troba una solució al bloqueig.</p>
     <div id="filmProgress" style="display:none;margin-bottom:12px">
       <pre id="filmOutput" style="background:var(--surface2);border-radius:6px;padding:8px;font-size:11px;max-height:220px;overflow-y:auto;white-space:pre-wrap;margin:0"></pre>
     </div>
@@ -1354,6 +1359,8 @@ function openEditSeries(idx) {
   document.getElementById('editAnim').checked  = !!s.a;
   document.getElementById('editYear').value    = s.yr || '';
   document.getElementById('btnDelete').style.display = 'inline-flex';
+  document.getElementById('editUpdateRow').style.display = 'block';
+  document.getElementById('updateSingleStatus').textContent = '';
   document.getElementById('editModal').style.display = 'flex';
 }
 
@@ -1364,6 +1371,7 @@ function openAddSeries() {
   document.getElementById('editEstat').value = 'No comencada';
   document.querySelectorAll('input[name="plat"]').forEach(cb => { cb.checked = false; });
   document.getElementById('btnDelete').style.display = 'none';
+  document.getElementById('editUpdateRow').style.display = 'none';
   document.getElementById('editModal').style.display = 'flex';
   setTimeout(() => document.getElementById('editTitle').focus(), 100);
 }
@@ -1379,6 +1387,44 @@ function deleteSeries() {
   closeEditModal();
   renderStats(); applyFilters();
   pushToGitHub();
+}
+
+async function updateSingleScores() {
+  if (editingIdx < 0) return;
+  const s = SERIES_DATA[editingIdx];
+  const btn = document.getElementById('btnUpdateSingle');
+  const statusEl = document.getElementById('updateSingleStatus');
+  btn.disabled = true;
+  statusEl.textContent = '⏳ Cercant TMDB…';
+
+  // ── TMDB (score + episodes) ──
+  let tmdbKey = localStorage.getItem('tmdb_key');
+  if (!tmdbKey) {
+    tmdbKey = prompt('Introdueix el teu TMDB API Key:');
+    if (tmdbKey) localStorage.setItem('tmdb_key', tmdbKey.trim());
+  }
+  if (tmdbKey) {
+    try {
+      const TMDB = 'https://api.themoviedb.org/3';
+      let tmid = s.tmid, tmtype = s.tmtype;
+      if (!tmid && s.u && s.u.includes('imdb.com')) {
+        const m = s.u.match(/tt\d+/);
+        if (m) {
+          const d = await (await fetch(`${TMDB}/find/${m[0]}?api_key=${tmdbKey}&external_source=imdb_id`)).json();
+          const tv = d.tv_results?.[0], mv = d.movie_results?.[0];
+          if (tv) { tmid = tv.id; tmtype = 'tv'; } else if (mv) { tmid = mv.id; tmtype = 'movie'; }
+        }
+      }
+      if (tmid && tmtype) {
+        const d = await (await fetch(`${TMDB}/${tmtype}/${tmid}?api_key=${tmdbKey}`)).json();
+        if (d.vote_average) document.getElementById('editTm').value = Math.round(d.vote_average * 10) / 10;
+        if (tmtype === 'tv' && d.number_of_episodes) document.getElementById('editEps').value = d.number_of_episodes;
+      }
+    } catch (e) { /* ignore, keep going */ }
+  }
+
+  btn.disabled = false;
+  statusEl.textContent = '✓ TMDB actualitzat. IMDb i Filmaffinity s\'han d\'editar manualment (bloquegen l\'accés automatitzat).';
 }
 
 function saveEdit() {

@@ -2,6 +2,13 @@
 """
 Fetch Filmaffinity score via scraping (search by title, take best match).
 Filmaffinity has no public API and no CORS, so this must run locally.
+
+KNOWN ISSUE: Filmaffinity is behind Cloudflare bot protection and returns
+a 403 "Just a moment..." challenge page to plain requests, so this currently
+finds 0 results. Kept here in case a future workaround (e.g. cloudscraper,
+a real browser session) is added — until then, Filmaffinity scores must be
+entered manually via the edit form.
+
 Usage: python fetch_filmaffinity.py
 """
 import json, re, sys, time
@@ -42,34 +49,38 @@ def calc_media(i, f, tm):
     if not vals: return None
     return round(sum(vals) / len(vals), 2)
 
-with open(JSON_PATH, encoding='utf-8') as f:
-    data = json.load(f)
+def main():
+    with open(JSON_PATH, encoding='utf-8') as f:
+        data = json.load(f)
 
-missing = [(i, s) for i, s in enumerate(data) if not s.get('f')]
-print(f"Series sense puntuació Filmaffinity: {len(missing)}")
+    missing = [(i, s) for i, s in enumerate(data) if not s.get('f')]
+    print(f"Series sense puntuació Filmaffinity: {len(missing)}")
 
-updated = 0
-errors  = 0
+    updated = 0
+    errors  = 0
 
-for n, (i, s) in enumerate(missing, 1):
-    score = search_score(s['t'])
-    if score:
-        data[i]['f'] = score
-        data[i]['m'] = calc_media(data[i].get('i'), score, data[i].get('tm'))
-        updated += 1
-        status = f'✓ {score}'
-    else:
-        errors += 1
-        status = '✗'
-    print(f"[{n:4}/{len(missing)}] {status} {s['t'][:55]}")
-    time.sleep(0.8)  # be polite, avoid rate limiting / blocking
+    for n, (i, s) in enumerate(missing, 1):
+        score = search_score(s['t'])
+        if score:
+            data[i]['f'] = score
+            data[i]['m'] = calc_media(data[i].get('i'), score, data[i].get('tm'))
+            updated += 1
+            status = f'✓ {score}'
+        else:
+            errors += 1
+            status = '✗'
+        print(f"[{n:4}/{len(missing)}] {status} {s['t'][:55]}")
+        time.sleep(0.8)  # be polite, avoid rate limiting / blocking
 
-    if n % 100 == 0:
-        with open(JSON_PATH, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, separators=(',',':'))
-        print(f"  → Guardat ({updated} afegits fins ara)\n")
+        if n % 100 == 0:
+            with open(JSON_PATH, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, separators=(',',':'))
+            print(f"  → Guardat ({updated} afegits fins ara)\n")
 
-with open(JSON_PATH, 'w', encoding='utf-8') as f:
-    json.dump(data, f, ensure_ascii=False, separators=(',',':'))
+    with open(JSON_PATH, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, separators=(',',':'))
 
-print(f"\n✅ Fi: {updated} puntuacions Filmaffinity afegides, {errors} no trobades")
+    print(f"\n✅ Fi: {updated} puntuacions Filmaffinity afegides, {errors} no trobades")
+
+if __name__ == '__main__':
+    main()
