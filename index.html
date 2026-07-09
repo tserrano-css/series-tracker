@@ -1452,13 +1452,16 @@ async function updateSingleScores() {
     changes.push(`${label}: ${before ?? '—'} → ${after}`);
 
   // ── 1. TMDB (score + episodes) — funciona des del navegador ──
+  let tmdbError = null;   // motiu pel qual TMDB no ha pogut actualitzar (per avisar, no amagar)
   statusEl.textContent = '⏳ TMDB…';
   let tmdbKey = localStorage.getItem('tmdb_key');
   if (!tmdbKey) {
     tmdbKey = prompt('Introdueix el teu TMDB API Key:');
     if (tmdbKey) localStorage.setItem('tmdb_key', tmdbKey.trim());
   }
-  if (tmdbKey) {
+  if (!tmdbKey) {
+    tmdbError = 'Falta la TMDB API Key.';
+  } else {
     try {
       const TMDB = 'https://api.themoviedb.org/3';
       let tmid = s.tmid, tmtype = s.tmtype;
@@ -1466,8 +1469,15 @@ async function updateSingleScores() {
         const m = s.u.match(/tt\d+/);
         if (m) {
           const d = await (await fetch(`${TMDB}/find/${m[0]}?api_key=${tmdbKey}&external_source=imdb_id`)).json();
-          const tv = d.tv_results?.[0], mv = d.movie_results?.[0];
-          if (tv) { tmid = tv.id; tmtype = 'tv'; } else if (mv) { tmid = mv.id; tmtype = 'movie'; }
+          if (d.success === false) {
+            tmdbError = `TMDB: ${d.status_message || 'API key invàlida'}`;
+          } else {
+            const tv = d.tv_results?.[0], mv = d.movie_results?.[0];
+            if (tv) { tmid = tv.id; tmtype = 'tv'; } else if (mv) { tmid = mv.id; tmtype = 'movie'; }
+            if (!tmid) tmdbError = 'No s\'ha trobat aquesta sèrie a TMDB (revisa la URL d\'IMDb).';
+          }
+        } else {
+          tmdbError = 'La URL d\'IMDb no té un id tt vàlid.';
         }
       }
       // Persisteix el tmid/tmtype resolt als camps ocults (saveEdit els llegeix d'aquí)
@@ -1478,6 +1488,9 @@ async function updateSingleScores() {
       if (tmtype) setVal('editTmtype', tmtype);
       if (tmid && tmtype) {
         const d = await (await fetch(`${TMDB}/${tmtype}/${tmid}?api_key=${tmdbKey}`)).json();
+        if (d.success === false) {
+          tmdbError = `TMDB: ${d.status_message || 'error en obtenir la puntuació'}`;
+        }
         if (d.vote_average) {
           const v = Math.round(d.vote_average * 10) / 10;
           if (v !== num('editTm')) fmt('TMDB', num('editTm'), v);
@@ -1489,7 +1502,9 @@ async function updateSingleScores() {
           setVal('editEps', e);
         }
       }
-    } catch (e) { /* ignore, keep going */ }
+    } catch (e) {
+      tmdbError = `TMDB: ${e.message || e}`;
+    }
   }
 
   // ── 2. IMDb + Filmaffinity — només en local (via navegador real de local_server.py) ──
@@ -1534,11 +1549,12 @@ async function updateSingleScores() {
   // La mitjana es recalcula automàticament al desar (saveEdit).
   refreshUrlLinks();
   btn.disabled = false;
+  const warnings = [tmdbError, localError].filter(Boolean);
   if (changes.length) {
     statusEl.innerHTML = '✓ ' + changes.join(' · ') + (isLocal ? '' : ' · (IMDb/FA només en local)');
-    if (localError) statusEl.innerHTML += ` · ⚠️ ${localError}`;
-  } else if (localError) {
-    statusEl.textContent = '⚠️ ' + localError;
+    if (warnings.length) statusEl.innerHTML += ' · ⚠️ ' + warnings.join(' · ');
+  } else if (warnings.length) {
+    statusEl.textContent = '⚠️ ' + warnings.join(' · ');
   } else {
     statusEl.textContent = isLocal ? '✓ Sense canvis (ja estava actualitzat)' : '✓ TMDB actualitzat. Obre en local per IMDb i Filmaffinity.';
   }
