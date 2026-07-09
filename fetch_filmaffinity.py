@@ -60,6 +60,20 @@ def extract_score(html):
     return None
 
 
+def imdb_score(driver, imdb_url):
+    """Fetch the IMDB rating from an IMDB title URL (real browser bypasses 503)."""
+    try:
+        driver.get(imdb_url)
+        time.sleep(3)
+        html = driver.page_source
+        m = re.search(r'"aggregateRating":\{[^}]*"ratingValue":([\d.]+)', html)
+        if m:
+            return float(m.group(1))
+    except Exception as e:
+        print(f'  Error: {e}')
+    return None
+
+
 def parse_results(html):
     """Return list of (film_id, year|None) from a Filmaffinity search page,
     in the order they appear. Each result is a `se-it` block."""

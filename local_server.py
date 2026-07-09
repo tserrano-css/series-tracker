@@ -13,6 +13,7 @@ import json
 import subprocess
 import sys
 import threading
+from urllib.parse import urlparse, parse_qs
 
 PORT = 8080
 
@@ -22,6 +23,38 @@ ALLOWED_SCRIPTS = {
 }
 
 job_state = {'running': False, 'output': '', 'done': False, 'error': None}
+
+# ── Persistent browser for single-series score lookups (IMDB + Filmaffinity) ──
+# Lazily created on first /fetch-scores call. Reused across calls so the
+# Cloudflare/IMDB challenge is only solved once. Guarded by a lock because
+# ThreadingHTTPServer may handle requests concurrently.
+_driver = None
+_driver_lock = threading.Lock()
+
+
+def get_driver():
+    global _driver
+    if _driver is None:
+        import fetch_filmaffinity as F
+        _driver = F.make_driver()
+    return _driver
+
+
+def fetch_scores(imdb_url, title, year, fa_url):
+    """Return {imdb, fa, fa_url} scraped with the real browser."""
+    import fetch_filmaffinity as F
+    out = {'imdb': None, 'fa': None, 'fa_url': fa_url or None}
+    with _driver_lock:
+        driver = get_driver()
+        if imdb_url:
+            out['imdb'] = F.imdb_score(driver, imdb_url)
+        if fa_url:
+            out['fa'] = F.score_from_url(driver, fa_url)
+        elif title:
+            score, found_url = F.search_score(driver, title, year)
+            out['fa'] = score
+            out['fa_url'] = found_url
+    return out
 
 
 def run_script(script_file):
@@ -83,17 +116,51 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
+    def _send_json(self, obj, status=200):
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps(obj).encode())
+
     def do_GET(self):
-        if self.path == '/script-status':
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps(job_state).encode())
+        parsed = urlparse(self.path)
+        if parsed.path == '/script-status':
+            self._send_json(job_state)
+        elif parsed.path == '/fetch-scores':
+            q = parse_qs(parsed.query)
+            imdb_url = q.get('imdb_url', [''])[0]
+            title    = q.get('title', [''])[0]
+            year     = q.get('year', [''])[0]
+            fa_url   = q.get('fa_url', [''])[0]
+            try:
+                result = fetch_scores(imdb_url, title,
+                                      int(year) if year.isdigit() else None,
+                                      fa_url)
+                self._send_json(result)
+            except Exception as e:
+                self._send_json({'error': str(e)}, status=500)
         else:
             super().do_GET()
 
 
+def _cleanup():
+    global _driver
+    if _driver is not None:
+        try:
+            _driver.quit()
+        except Exception:
+            pass
+        _driver = None
+
+
 if __name__ == '__main__':
+    import atexit
+    atexit.register(_cleanup)
     print(f"Servint series-tracker a http://localhost:{PORT}")
-    print("Endpoint local: POST /run-script  { name: 'filmaffinity' }")
-    http.server.ThreadingHTTPServer(('localhost', PORT), Handler).serve_forever()
+    print("Endpoints: POST /run-script · GET /fetch-scores?imdb_url&title&year&fa_url")
+    try:
+        http.server.ThreadingHTTPServer(('localhost', PORT), Handler).serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        _cleanup()

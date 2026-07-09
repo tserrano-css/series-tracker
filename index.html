@@ -1154,7 +1154,7 @@ function goPage(p) {
           <input id="editTitle" type="text" required placeholder="Nom de la sèrie">
         </label>
         <div class="full" id="editUpdateRow" style="display:none">
-          <button type="button" class="btn-adm" onclick="updateSingleScores()" id="btnUpdateSingle">🔄 Actualitzar puntuació TMDB i episodis</button>
+          <button type="button" class="btn-adm" onclick="updateSingleScores()" id="btnUpdateSingle">🔄 Actualitzar puntuacions i episodis</button>
           <span id="updateSingleStatus" style="font-size:12px;color:var(--text-muted);margin-left:8px"></span>
         </div>
         <label>Estat
@@ -1397,10 +1397,16 @@ async function updateSingleScores() {
   const s = SERIES_DATA[editingIdx];
   const btn = document.getElementById('btnUpdateSingle');
   const statusEl = document.getElementById('updateSingleStatus');
+  const setVal = (id, v) => { document.getElementById(id).value = v; };
+  const num = id => parseFloat(document.getElementById(id).value) || null;
   btn.disabled = true;
-  statusEl.textContent = '⏳ Cercant TMDB…';
 
-  // ── TMDB (score + episodes) ──
+  const changes = [];   // human-readable list of what changed
+  const fmt = (label, before, after) =>
+    changes.push(`${label}: ${before ?? '—'} → ${after}`);
+
+  // ── 1. TMDB (score + episodes) — funciona des del navegador ──
+  statusEl.textContent = '⏳ TMDB…';
   let tmdbKey = localStorage.getItem('tmdb_key');
   if (!tmdbKey) {
     tmdbKey = prompt('Introdueix el teu TMDB API Key:');
@@ -1420,14 +1426,56 @@ async function updateSingleScores() {
       }
       if (tmid && tmtype) {
         const d = await (await fetch(`${TMDB}/${tmtype}/${tmid}?api_key=${tmdbKey}`)).json();
-        if (d.vote_average) document.getElementById('editTm').value = Math.round(d.vote_average * 10) / 10;
-        if (tmtype === 'tv' && d.number_of_episodes) document.getElementById('editEps').value = d.number_of_episodes;
+        if (d.vote_average) {
+          const v = Math.round(d.vote_average * 10) / 10;
+          if (v !== num('editTm')) fmt('TMDB', num('editTm'), v);
+          setVal('editTm', v);
+        }
+        if (tmtype === 'tv' && d.number_of_episodes) {
+          const e = d.number_of_episodes;
+          if (e !== (parseInt(document.getElementById('editEps').value)||null)) fmt('Episodis', document.getElementById('editEps').value||'—', e);
+          setVal('editEps', e);
+        }
       }
     } catch (e) { /* ignore, keep going */ }
   }
 
+  // ── 2. IMDb + Filmaffinity — només en local (via navegador real de local_server.py) ──
+  if (isLocal) {
+    statusEl.textContent = '⏳ IMDb i Filmaffinity (navegador real)…';
+    try {
+      const params = new URLSearchParams({
+        imdb_url: s.u || '',
+        title:    s.t || '',
+        year:     s.yr || '',
+        fa_url:   document.getElementById('editFaUrl').value.trim() || '',
+      });
+      const res = await fetch(`${LOCAL_API}/fetch-scores?${params}`);
+      if (res.ok) {
+        const d = await res.json();
+        if (d.imdb) {
+          if (d.imdb !== num('editImdb')) fmt('IMDb', num('editImdb'), d.imdb);
+          setVal('editImdb', d.imdb);
+        }
+        if (d.fa) {
+          if (d.fa !== num('editFa')) fmt('Filmaffinity', num('editFa'), d.fa);
+          setVal('editFa', d.fa);
+        }
+        if (d.fa_url && d.fa_url !== document.getElementById('editFaUrl').value.trim()) {
+          fmt('URL FA', '—', 'desada');
+          setVal('editFaUrl', d.fa_url);
+        }
+      }
+    } catch (e) { /* local_server.py no actiu */ }
+  }
+
+  // La mitjana es recalcula automàticament al desar (saveEdit).
   btn.disabled = false;
-  statusEl.textContent = '✓ TMDB actualitzat. IMDb i Filmaffinity s\'han d\'editar manualment (bloquegen l\'accés automatitzat).';
+  if (changes.length) {
+    statusEl.innerHTML = '✓ ' + changes.join(' · ') + (isLocal ? '' : ' · (IMDb/FA només en local)');
+  } else {
+    statusEl.textContent = isLocal ? '✓ Sense canvis (ja estava actualitzat)' : '✓ TMDB actualitzat. Obre en local per IMDb i Filmaffinity.';
+  }
 }
 
 function saveEdit() {
