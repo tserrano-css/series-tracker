@@ -1438,6 +1438,21 @@ function refreshUrlLinks() {
   document.getElementById(id)?.addEventListener('input', refreshUrlLinks);
 });
 
+// Resol el TMDB id (i tipus) a partir d'un IMDB id via Wikidata — sense API key.
+// Wikidata enllaça l'IMDB id (P345) amb el TMDB de sèrie (P4983) i de pel·lícula (P4947).
+async function resolveTmidFromImdb(imdbId) {
+  const sparql = `SELECT ?tv ?movie WHERE { ?item wdt:P345 "${imdbId}". OPTIONAL { ?item wdt:P4983 ?tv. } OPTIONAL { ?item wdt:P4947 ?movie. } } LIMIT 1`;
+  const url = `https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(sparql)}`;
+  const r = await fetch(url, { headers: { 'Accept': 'application/sparql-results+json' } });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const j = await r.json();
+  const b = j.results?.bindings?.[0];
+  if (!b) return null;
+  if (b.tv)    return { tmid: parseInt(b.tv.value), tmtype: 'tv' };
+  if (b.movie) return { tmid: parseInt(b.movie.value), tmtype: 'movie' };
+  return null;
+}
+
 async function updateSingleScores() {
   if (editingIdx < 0) return;
   const s = SERIES_DATA[editingIdx];
@@ -1451,59 +1466,67 @@ async function updateSingleScores() {
   const fmt = (label, before, after) =>
     changes.push(`${label}: ${before ?? '—'} → ${after}`);
 
-  // ── 1. TMDB (score + episodes) — funciona des del navegador ──
+  // ── 1. TMDB — id via Wikidata (sense key), puntuació+episodis via TMDB (amb key) ──
   let tmdbError = null;   // motiu pel qual TMDB no ha pogut actualitzar (per avisar, no amagar)
   statusEl.textContent = '⏳ TMDB…';
-  let tmdbKey = localStorage.getItem('tmdb_key');
-  if (!tmdbKey) {
-    tmdbKey = prompt('Introdueix el teu TMDB API Key:');
-    if (tmdbKey) localStorage.setItem('tmdb_key', tmdbKey.trim());
+
+  // 1a. Resol tmid/tmtype a partir de la URL d'IMDb via Wikidata — NO necessita API key.
+  let tmid = s.tmid, tmtype = s.tmtype;
+  if (!tmid && s.u && s.u.includes('imdb.com')) {
+    const m = s.u.match(/tt\d+/);
+    if (m) {
+      try {
+        const r = await resolveTmidFromImdb(m[0]);
+        if (r) { tmid = r.tmid; tmtype = r.tmtype; }
+        else tmdbError = 'No s\'ha trobat el TMDB ID (Wikidata no el té; revisa la URL d\'IMDb).';
+      } catch (e) { tmdbError = `Wikidata: ${e.message || e}`; }
+    } else {
+      tmdbError = 'La URL d\'IMDb no té un id tt vàlid.';
+    }
   }
-  if (!tmdbKey) {
-    tmdbError = 'Falta la TMDB API Key.';
-  } else {
-    try {
-      const TMDB = 'https://api.themoviedb.org/3';
-      let tmid = s.tmid, tmtype = s.tmtype;
-      if (!tmid && s.u && s.u.includes('imdb.com')) {
-        const m = s.u.match(/tt\d+/);
-        if (m) {
-          const d = await (await fetch(`${TMDB}/find/${m[0]}?api_key=${tmdbKey}&external_source=imdb_id`)).json();
-          if (d.success === false) {
-            tmdbError = `TMDB: ${d.status_message || 'API key invàlida'}`;
-          } else {
-            const tv = d.tv_results?.[0], mv = d.movie_results?.[0];
-            if (tv) { tmid = tv.id; tmtype = 'tv'; } else if (mv) { tmid = mv.id; tmtype = 'movie'; }
-            if (!tmid) tmdbError = 'No s\'ha trobat aquesta sèrie a TMDB (revisa la URL d\'IMDb).';
-          }
-        } else {
-          tmdbError = 'La URL d\'IMDb no té un id tt vàlid.';
-        }
-      }
-      // Persisteix el tmid/tmtype resolt als camps ocults (saveEdit els llegeix d'aquí)
-      if (tmid && tmtype && (tmid != (s.tmid ?? '') || tmtype !== (s.tmtype || ''))) {
-        fmt('TMDB ID', s.tmid ?? '—', tmid);
-      }
-      if (tmid)   setVal('editTmid', tmid);
-      if (tmtype) setVal('editTmtype', tmtype);
-      if (tmid && tmtype) {
-        const d = await (await fetch(`${TMDB}/${tmtype}/${tmid}?api_key=${tmdbKey}`)).json();
+  // Persisteix el tmid/tmtype resolt als camps ocults (saveEdit els llegeix d'aquí)
+  if (tmid && tmtype && (tmid != (s.tmid ?? '') || tmtype !== (s.tmtype || ''))) {
+    fmt('TMDB ID', s.tmid ?? '—', tmid);
+  }
+  if (tmid)   setVal('editTmid', tmid);
+  if (tmtype) setVal('editTmtype', tmtype);
+
+  // 1b. Puntuació + episodis via TMDB (això sí que necessita API key).
+  if (tmid && tmtype) {
+    let tmdbKey = localStorage.getItem('tmdb_key');
+    if (!tmdbKey) {
+      tmdbKey = prompt('Introdueix el teu TMDB API Key (v3):');
+      if (tmdbKey) localStorage.setItem('tmdb_key', tmdbKey.trim());
+    }
+    if (!tmdbKey) {
+      tmdbError = 'Falta la TMDB API Key (per a la puntuació).';
+    } else {
+      const fetchDetail = k => fetch(`https://api.themoviedb.org/3/${tmtype}/${tmid}?api_key=${k}`).then(r => r.json());
+      try {
+        let d = await fetchDetail(tmdbKey);
+        // Auto-recuperació sense consola: si la key desada és invàlida, esborra-la i demana'n una de nova.
         if (d.success === false) {
-          tmdbError = `TMDB: ${d.status_message || 'error en obtenir la puntuació'}`;
+          localStorage.removeItem('tmdb_key');
+          const nk = prompt(`La TMDB API Key desada no és vàlida:\n${d.status_message || ''}\n\nIntrodueix-ne una de nova (v3), o Cancel·la:`);
+          if (nk) { localStorage.setItem('tmdb_key', nk.trim()); d = await fetchDetail(nk.trim()); }
         }
-        if (d.vote_average) {
-          const v = Math.round(d.vote_average * 10) / 10;
-          if (v !== num('editTm')) fmt('TMDB', num('editTm'), v);
-          setVal('editTm', v);
+        if (d.success === false) {
+          tmdbError = `TMDB: ${d.status_message || 'API key invàlida'}`;
+        } else {
+          if (d.vote_average) {
+            const v = Math.round(d.vote_average * 10) / 10;
+            if (v !== num('editTm')) fmt('TMDB', num('editTm'), v);
+            setVal('editTm', v);
+          }
+          if (tmtype === 'tv' && d.number_of_episodes) {
+            const e = d.number_of_episodes;
+            if (e !== (parseInt(document.getElementById('editEps').value)||null)) fmt('Episodis', document.getElementById('editEps').value||'—', e);
+            setVal('editEps', e);
+          }
         }
-        if (tmtype === 'tv' && d.number_of_episodes) {
-          const e = d.number_of_episodes;
-          if (e !== (parseInt(document.getElementById('editEps').value)||null)) fmt('Episodis', document.getElementById('editEps').value||'—', e);
-          setVal('editEps', e);
-        }
+      } catch (e) {
+        tmdbError = `TMDB: ${e.message || e}`;
       }
-    } catch (e) {
-      tmdbError = `TMDB: ${e.message || e}`;
     }
   }
 
