@@ -1224,9 +1224,34 @@ function goPage(p) {
 <div id="adminBar" class="admin-bar" style="display:none">
   <span class="admin-bar-label">🔑 Admin</span>
   <button class="btn-adm primary" onclick="openAddSeries()">+ Afegir sèrie</button>
+  <button class="btn-adm" onclick="startUpdateScores()" id="btnUpdateScores">🔄 Actualitzar puntuacions</button>
   <span id="adminStatus" class="admin-status"></span>
   <button class="btn-adm" onclick="exitAdmin()">Sortir</button>
   <button class="btn-adm danger" onclick="clearToken()">Tancar sessió</button>
+</div>
+
+<!-- MODAL ACTUALITZAR PUNTUACIONS -->
+<div id="updateModal" class="modal-overlay" style="display:none" onclick="if(event.target===this&&!updateRunning)this.style.display='none'">
+  <div class="modal-box" style="max-width:480px">
+    <h3 style="margin:0 0 12px">🔄 Actualitzar puntuacions TMDB</h3>
+    <p style="margin:0 0 8px;color:var(--text-muted);font-size:13px">Actualitza puntuació TMDB i número d'episodis per totes les sèries. Pot tardar uns minuts.</p>
+    <div id="updateProgress" style="display:none;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+        <span id="updateProgressText">Processant...</span>
+        <span id="updateProgressPct">0%</span>
+      </div>
+      <div style="background:var(--surface2);border-radius:4px;height:8px;overflow:hidden">
+        <div id="updateProgressBar" style="background:var(--accent);height:100%;width:0%;transition:width .3s"></div>
+      </div>
+      <div id="updateStats" style="font-size:11px;color:var(--text-muted);margin-top:6px"></div>
+    </div>
+    <div id="updateResult" style="display:none;padding:10px;border-radius:6px;font-size:13px;margin-bottom:12px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn-adm" id="btnStartUpdate" onclick="runUpdateScores()">Iniciar</button>
+      <button class="btn-adm primary" id="btnSaveUpdate" style="display:none" onclick="saveAfterUpdate()">💾 Guardar a GitHub</button>
+      <button class="btn-adm" onclick="closeUpdateModal()" id="btnCloseUpdate">Cancelar</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1373,6 +1398,141 @@ function saveEdit() {
   closeEditModal();
   renderStats(); applyFilters();
   pushToGitHub();
+}
+
+// ── ACTUALITZAR PUNTUACIONS TMDB ─────────────────────────────────────────────
+let updateRunning = false;
+
+function startUpdateScores() {
+  const key = localStorage.getItem('tmdb_key');
+  if (!key) {
+    const k = prompt('Introdueix el teu TMDB API Key:\n(Es guardarà al navegador per futures actualitzacions)');
+    if (!k) return;
+    localStorage.setItem('tmdb_key', k.trim());
+  }
+  document.getElementById('updateModal').style.display = 'flex';
+  document.getElementById('updateProgress').style.display = 'none';
+  document.getElementById('updateResult').style.display = 'none';
+  document.getElementById('btnStartUpdate').disabled = false;
+  document.getElementById('btnStartUpdate').textContent = 'Iniciar';
+  document.getElementById('btnCloseUpdate').textContent = 'Cancelar';
+}
+
+function closeUpdateModal() {
+  if (updateRunning) return;
+  document.getElementById('updateModal').style.display = 'none';
+}
+
+async function tmdbFetch(url) {
+  const r = await fetch(url);
+  if (r.status === 429) {
+    await new Promise(res => setTimeout(res, 2000));
+    return tmdbFetch(url);
+  }
+  if (!r.ok) return null;
+  return r.json();
+}
+
+async function runUpdateScores() {
+  const apiKey = localStorage.getItem('tmdb_key');
+  if (!apiKey) return;
+
+  updateRunning = true;
+  document.getElementById('btnStartUpdate').disabled = true;
+  document.getElementById('btnStartUpdate').textContent = 'Processant…';
+  document.getElementById('btnCloseUpdate').textContent = 'Tancar';
+  document.getElementById('updateProgress').style.display = 'block';
+  document.getElementById('updateResult').style.display = 'none';
+
+  const TMDB = 'https://api.themoviedb.org/3';
+  const total = SERIES_DATA.length;
+  let updScore = 0, updEps = 0, errors = 0;
+
+  const calcMedia = (i, f, tm) => {
+    const vals = [i, f, tm].filter(v => v && v > 0);
+    return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*100)/100 : null;
+  };
+
+  // Process in batches of 5 concurrent requests
+  const CONCURRENCY = 5;
+  for (let start = 0; start < total; start += CONCURRENCY) {
+    const batch = SERIES_DATA.slice(start, start + CONCURRENCY);
+    await Promise.all(batch.map(async (s) => {
+      try {
+        let score = null, episodes = null;
+
+        if (s.tmid && s.tmtype) {
+          // Direct fetch using stored TMDB ID
+          const d = await tmdbFetch(`${TMDB}/${s.tmtype}/${s.tmid}?api_key=${apiKey}`);
+          if (d) {
+            score    = d.vote_average ? Math.round(d.vote_average * 10) / 10 : null;
+            episodes = s.tmtype === 'tv' ? (d.number_of_episodes || null) : null;
+          }
+        } else if (s.u && s.u.includes('imdb.com')) {
+          // Fallback: find by IMDB ID
+          const imdbMatch = s.u.match(/tt\d+/);
+          if (imdbMatch) {
+            const d = await tmdbFetch(`${TMDB}/find/${imdbMatch[0]}?api_key=${apiKey}&external_source=imdb_id`);
+            if (d) {
+              const tv = d.tv_results?.[0];
+              const mv = d.movie_results?.[0];
+              if (tv) {
+                score    = tv.vote_average ? Math.round(tv.vote_average * 10) / 10 : null;
+                s.tmid   = tv.id; s.tmtype = 'tv';
+                // Get full TV details for episode count
+                const tvd = await tmdbFetch(`${TMDB}/tv/${tv.id}?api_key=${apiKey}`);
+                if (tvd) {
+                  score    = tvd.vote_average ? Math.round(tvd.vote_average * 10) / 10 : null;
+                  episodes = tvd.number_of_episodes || null;
+                }
+              } else if (mv) {
+                score    = mv.vote_average ? Math.round(mv.vote_average * 10) / 10 : null;
+                s.tmid   = mv.id; s.tmtype = 'movie';
+              }
+            }
+          }
+        }
+
+        if (score && score !== s.tm) { s.tm = score; updScore++; }
+        if (episodes && episodes !== s.e) { s.e = episodes; updEps++; }
+        const newMedia = calcMedia(s.i, s.f, s.tm);
+        if (newMedia) s.m = newMedia;
+
+      } catch(e) { errors++; }
+    }));
+
+    // Update progress
+    const done = Math.min(start + CONCURRENCY, total);
+    const pct  = Math.round(done / total * 100);
+    document.getElementById('updateProgressBar').style.width  = pct + '%';
+    document.getElementById('updateProgressPct').textContent  = pct + '%';
+    document.getElementById('updateProgressText').textContent = `${done} / ${total} sèries`;
+    document.getElementById('updateStats').textContent        = `✓ ${updScore} puntuacions · ${updEps} episodis actualitzats`;
+
+    // Small pause between batches to respect rate limit
+    await new Promise(res => setTimeout(res, 150));
+  }
+
+  updateRunning = false;
+
+  const resEl = document.getElementById('updateResult');
+  resEl.style.display = 'block';
+  resEl.style.background = 'rgba(1,210,119,.12)';
+  resEl.style.color = '#01d277';
+  resEl.textContent = `✅ Completat: ${updScore} puntuacions TMDB i ${updEps} episodis actualitzats.`;
+
+  document.getElementById('btnStartUpdate').textContent = 'Tornar a executar';
+  document.getElementById('btnStartUpdate').disabled = false;
+  document.getElementById('btnSaveUpdate').style.display = (updScore + updEps > 0) ? 'inline-flex' : 'none';
+
+  // Re-render cards with new data
+  applyFilters();
+}
+
+async function saveAfterUpdate() {
+  document.getElementById('btnSaveUpdate').disabled = true;
+  document.getElementById('updateModal').style.display = 'none';
+  await pushToGitHub();
 }
 
 // ── GITHUB API ───────────────────────────────────────────────────────────────
