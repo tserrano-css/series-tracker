@@ -637,6 +637,18 @@
     font-size: 13px; font-family: 'DM Sans',sans-serif; outline: none; width: 100%; box-sizing: border-box;
   }
   .form-grid input:focus, .form-grid select:focus { border-color: var(--accent); }
+  /* Camp d'URL amb botó per obrir en una pestanya nova */
+  .url-field { display: flex; gap: 6px; align-items: stretch; }
+  .url-field input { flex: 1; }
+  .url-open {
+    flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+    min-width: 34px; padding: 0 8px; box-sizing: border-box;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--accent3); text-decoration: none; font-size: 15px; line-height: 1; cursor: pointer;
+    transition: border-color .15s, opacity .15s;
+  }
+  .url-open:hover { border-color: var(--accent3); }
+  .url-open.disabled { opacity: .35; pointer-events: none; }
   .modal-actions { display: flex; gap: 8px; margin-top: 20px; align-items: center; }
   .modal-actions .spacer { flex: 1; }
 
@@ -1199,13 +1211,22 @@ function goPage(p) {
           <input id="editTp" type="text" placeholder="4">
         </label>
         <label class="full">URL IMDb
-          <input id="editUrl" type="text" placeholder="https://www.imdb.com/title/tt…">
+          <span class="url-field">
+            <input id="editUrl" type="text" placeholder="https://www.imdb.com/title/tt…">
+            <a class="url-open" data-for="editUrl" target="_blank" rel="noopener" title="Obrir en una pestanya nova">↗</a>
+          </span>
         </label>
         <label class="full">URL Filmaffinity
-          <input id="editFaUrl" type="text" placeholder="https://www.filmaffinity.com/es/film…">
+          <span class="url-field">
+            <input id="editFaUrl" type="text" placeholder="https://www.filmaffinity.com/es/film…">
+            <a class="url-open" data-for="editFaUrl" target="_blank" rel="noopener" title="Obrir en una pestanya nova">↗</a>
+          </span>
         </label>
         <label class="full">Poster URL
-          <input id="editPoster" type="text" placeholder="https://…">
+          <span class="url-field">
+            <input id="editPoster" type="text" placeholder="https://…">
+            <a class="url-open" data-for="editPoster" target="_blank" rel="noopener" title="Obrir en una pestanya nova">↗</a>
+          </span>
         </label>
         <label>Any inici
           <input id="editYear" type="number" min="1900" max="2030" placeholder="2024">
@@ -1358,6 +1379,7 @@ function openEditSeries(idx) {
   document.getElementById('editUrl').value     = s.u || '';
   document.getElementById('editFaUrl').value   = s.fu || '';
   document.getElementById('editPoster').value  = s.g || '';
+  refreshUrlLinks();
   document.getElementById('editEstreno').value = s.es || '';
   document.getElementById('editAnim').checked  = !!s.a;
   document.getElementById('editYear').value    = s.yr || '';
@@ -1391,6 +1413,26 @@ function deleteSeries() {
   renderStats(); applyFilters();
   pushToGitHub();
 }
+
+// Sincronitza cada enllaç ↗ amb el valor actual del seu camp d'URL.
+// Si el camp és buit (o no és http), desactiva l'enllaç.
+function refreshUrlLinks() {
+  document.querySelectorAll('.url-open').forEach(a => {
+    const input = document.getElementById(a.dataset.for);
+    const val = (input?.value || '').trim();
+    if (/^https?:\/\//i.test(val)) {
+      a.href = val;
+      a.classList.remove('disabled');
+    } else {
+      a.removeAttribute('href');
+      a.classList.add('disabled');
+    }
+  });
+}
+// Mantén els enllaços al dia mentre l'usuari edita els camps.
+['editUrl', 'editFaUrl', 'editPoster'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', refreshUrlLinks);
+});
 
 async function updateSingleScores() {
   if (editingIdx < 0) return;
@@ -1480,6 +1522,7 @@ async function updateSingleScores() {
   }
 
   // La mitjana es recalcula automàticament al desar (saveEdit).
+  refreshUrlLinks();
   btn.disabled = false;
   if (changes.length) {
     statusEl.innerHTML = '✓ ' + changes.join(' · ') + (isLocal ? '' : ' · (IMDb/FA només en local)');
