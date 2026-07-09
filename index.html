@@ -1201,6 +1201,9 @@ function goPage(p) {
         <label class="full">URL IMDb
           <input id="editUrl" type="text" placeholder="https://www.imdb.com/title/tt…">
         </label>
+        <label class="full">URL Filmaffinity
+          <input id="editFaUrl" type="text" placeholder="https://www.filmaffinity.com/es/film…">
+        </label>
         <label class="full">Poster URL
           <input id="editPoster" type="text" placeholder="https://…">
         </label>
@@ -1263,8 +1266,7 @@ function goPage(p) {
 <div id="filmModal" class="modal-overlay" style="display:none" onclick="if(event.target===this&&!filmRunning)this.style.display='none'">
   <div class="modal-box" style="max-width:480px">
     <h3 style="margin:0 0 12px">🎬 Actualitzar Filmaffinity</h3>
-    <p style="margin:0 0 8px;color:var(--text-muted);font-size:13px">Executa <code>fetch_filmaffinity.py</code> al teu PC via scraping. Aquest botó només funciona quan obres la web en local amb <code>local_server.py</code>.</p>
-    <p style="margin:0 0 8px;color:#f59e0b;font-size:12px">⚠️ Filmaffinity bloqueja el scraping amb Cloudflare — actualment aquest script sol trobar 0 resultats. Es manté per si es troba una solució al bloqueig.</p>
+    <p style="margin:0 0 8px;color:var(--text-muted);font-size:13px">Executa <code>fetch_filmaffinity.py</code> al teu PC. Obrirà una finestra de Chrome per passar la protecció de Cloudflare i omplir les puntuacions que falten. Només funciona quan obres la web en local amb <code>local_server.py</code>.</p>
     <div id="filmProgress" style="display:none;margin-bottom:12px">
       <pre id="filmOutput" style="background:var(--surface2);border-radius:6px;padding:8px;font-size:11px;max-height:220px;overflow-y:auto;white-space:pre-wrap;margin:0"></pre>
     </div>
@@ -1354,6 +1356,7 @@ function openEditSeries(idx) {
   document.getElementById('editTv').value      = s.tv || '';
   document.getElementById('editTp').value      = s.tp || '';
   document.getElementById('editUrl').value     = s.u || '';
+  document.getElementById('editFaUrl').value   = s.fu || '';
   document.getElementById('editPoster').value  = s.g || '';
   document.getElementById('editEstreno').value = s.es || '';
   document.getElementById('editAnim').checked  = !!s.a;
@@ -1436,11 +1439,15 @@ function saveEdit() {
   const media = vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*100)/100 : null;
   const plat  = [...document.querySelectorAll('input[name="plat"]:checked')].map(cb => cb.value).join(', ');
 
+  const prev = editingIdx === -1 ? {} : SERIES_DATA[editingIdx];
+  const faUrl = document.getElementById('editFaUrl').value.trim();
   const updated = {
     t:  document.getElementById('editTitle').value.trim(),
     u:  document.getElementById('editUrl').value.trim(),
     p:  plat,
     i:  imdb, f: fa, tm: tm, m: media,
+    fu: faUrl || undefined,
+    tmid: prev.tmid, tmtype: prev.tmtype,
     v:  ['Completada','En curs','Pend. nova temp.'].includes(estat),
     w:  estat === 'En curs',
     nt: estat === 'Pend. nova temp.',
