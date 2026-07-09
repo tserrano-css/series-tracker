@@ -1062,12 +1062,12 @@ function renderCard(s) {
             <span class="mini-bar-val">${imdbDisp}</span>
           </div>
           <div class="mini-bar-row">
-            <span class="mini-bar-label" style="color:#60a5fa">FA</span>
+            ${s.fu ? `<a href="${escHtml(s.fu)}" target="_blank" rel="noopener" class="mini-bar-label" style="color:#60a5fa">FA</a>` : `<span class="mini-bar-label" style="color:#60a5fa">FA</span>`}
             <div class="mini-bar"><div class="mini-bar-fill fa" style="width:${faPct}%"></div></div>
             <span class="mini-bar-val">${faDisp}</span>
           </div>
           ${s.tm ? `<div class="mini-bar-row">
-            ${s.tmid ? `<a href="https://www.themoviedb.org/${s.tmtype||'tv'}/${s.tmid}" target="_blank" rel="noopener" class="mini-bar-label" style="color:#01d277">TMDB</a>` : `<span class="mini-bar-label" style="color:#01d277">TMDB</span>`}
+            ${s.tmid ? `<a href="https://www.themoviedb.org/${s.tmtype||'tv'}/${s.tmid}" target="_blank" rel="noopener" class="mini-bar-label" style="color:#01d277">TMDB</a>` : `<a href="https://www.themoviedb.org/search?query=${encodeURIComponent(s.t||'')}" target="_blank" rel="noopener" class="mini-bar-label" style="color:#01d277">TMDB</a>`}
             <div class="mini-bar"><div class="mini-bar-fill tm" style="width:${tmPct}%"></div></div>
             <span class="mini-bar-val">${tmDisp}</span>
           </div>` : ''}
