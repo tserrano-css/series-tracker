@@ -1228,7 +1228,12 @@ function goPage(p) {
             <a class="url-open" data-for="editPoster" target="_blank" rel="noopener" title="Obrir en una pestanya nova">↗</a>
           </span>
         </label>
-        <input id="editTmid" type="hidden">
+        <label class="full">TMDB ID
+          <span class="url-field">
+            <input id="editTmid" type="text" placeholder="p.ex. 94997">
+            <a class="url-open" data-for="editTmid" target="_blank" rel="noopener" title="Obrir a TMDB en una pestanya nova">↗</a>
+          </span>
+        </label>
         <input id="editTmtype" type="hidden">
         <label>Any inici
           <input id="editYear" type="number" min="1900" max="2030" placeholder="2024">
@@ -1422,9 +1427,17 @@ function deleteSeries() {
 // Si el camp és buit (o no és http), desactiva l'enllaç.
 function refreshUrlLinks() {
   document.querySelectorAll('.url-open').forEach(a => {
-    const input = document.getElementById(a.dataset.for);
-    const val = (input?.value || '').trim();
-    if (/^https?:\/\//i.test(val)) {
+    let val;
+    if (a.dataset.for === 'editTmid') {
+      // El camp TMDB conté un id numèric, no una URL: la construïm amb el tipus.
+      const id   = (document.getElementById('editTmid').value || '').trim();
+      const type = (document.getElementById('editTmtype').value || 'tv').trim() || 'tv';
+      val = /^\d+$/.test(id) ? `https://www.themoviedb.org/${type}/${id}` : '';
+    } else {
+      const raw = (document.getElementById(a.dataset.for)?.value || '').trim();
+      val = /^https?:\/\//i.test(raw) ? raw : '';
+    }
+    if (val) {
       a.href = val;
       a.classList.remove('disabled');
     } else {
@@ -1434,7 +1447,7 @@ function refreshUrlLinks() {
   });
 }
 // Mantén els enllaços al dia mentre l'usuari edita els camps.
-['editUrl', 'editFaUrl', 'editPoster'].forEach(id => {
+['editUrl', 'editFaUrl', 'editPoster', 'editTmid'].forEach(id => {
   document.getElementById(id)?.addEventListener('input', refreshUrlLinks);
 });
 
