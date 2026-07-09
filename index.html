@@ -1228,6 +1228,8 @@ function goPage(p) {
             <a class="url-open" data-for="editPoster" target="_blank" rel="noopener" title="Obrir en una pestanya nova">↗</a>
           </span>
         </label>
+        <input id="editTmid" type="hidden">
+        <input id="editTmtype" type="hidden">
         <label>Any inici
           <input id="editYear" type="number" min="1900" max="2030" placeholder="2024">
         </label>
@@ -1379,6 +1381,8 @@ function openEditSeries(idx) {
   document.getElementById('editUrl').value     = s.u || '';
   document.getElementById('editFaUrl').value   = s.fu || '';
   document.getElementById('editPoster').value  = s.g || '';
+  document.getElementById('editTmid').value    = s.tmid ?? '';
+  document.getElementById('editTmtype').value  = s.tmtype || '';
   refreshUrlLinks();
   document.getElementById('editEstreno').value = s.es || '';
   document.getElementById('editAnim').checked  = !!s.a;
@@ -1466,6 +1470,12 @@ async function updateSingleScores() {
           if (tv) { tmid = tv.id; tmtype = 'tv'; } else if (mv) { tmid = mv.id; tmtype = 'movie'; }
         }
       }
+      // Persisteix el tmid/tmtype resolt als camps ocults (saveEdit els llegeix d'aquí)
+      if (tmid && tmtype && (tmid != (s.tmid ?? '') || tmtype !== (s.tmtype || ''))) {
+        fmt('TMDB ID', s.tmid ?? '—', tmid);
+      }
+      if (tmid)   setVal('editTmid', tmid);
+      if (tmtype) setVal('editTmtype', tmtype);
       if (tmid && tmtype) {
         const d = await (await fetch(`${TMDB}/${tmtype}/${tmid}?api_key=${tmdbKey}`)).json();
         if (d.vote_average) {
@@ -1545,13 +1555,15 @@ function saveEdit() {
 
   const prev = editingIdx === -1 ? {} : SERIES_DATA[editingIdx];
   const faUrl = document.getElementById('editFaUrl').value.trim();
+  const tmidVal = parseInt(document.getElementById('editTmid').value) || prev.tmid;
+  const tmtypeVal = document.getElementById('editTmtype').value.trim() || prev.tmtype;
   const updated = {
     t:  document.getElementById('editTitle').value.trim(),
     u:  document.getElementById('editUrl').value.trim(),
     p:  plat,
     i:  imdb, f: fa, tm: tm, m: media,
     fu: faUrl || undefined,
-    tmid: prev.tmid, tmtype: prev.tmtype,
+    tmid: tmidVal, tmtype: tmtypeVal,
     v:  ['Completada','En curs','Pend. nova temp.'].includes(estat),
     w:  estat === 'En curs',
     nt: estat === 'Pend. nova temp.',
