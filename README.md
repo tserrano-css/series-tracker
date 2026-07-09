@@ -24,13 +24,15 @@ series-tracker/
 Como `index.html` carga `series.json` via `fetch()`, necesita un servidor local:
 
 ```bash
-# Opción 1: Python (recomendado)
-python -m http.server 8000
-# Abrir http://localhost:8000
-
-# Opción 2: Node.js
-npx serve .
+# Opción 1: local_server.py (recomendado)
+python local_server.py
+# Abrir http://localhost:8080
 ```
+
+`local_server.py` sirve los ficheros estáticos **y** expone endpoints locales que
+permiten actualizar puntuaciones de IMDb y Filmaffinity desde la propia web usando un
+navegador real (ver más abajo). Con el simple `python -m http.server 8080` la web
+funciona igual, pero esos botones de IMDb/Filmaffinity no estarán disponibles.
 
 ## Scripts de datos (Python)
 
@@ -109,10 +111,10 @@ python fetch_filmaffinity.py --refresh
 python fetch_filmaffinity.py --chrome-version 149
 ```
 
-> **Nota:** IMDB sigue sin poder actualizarse automáticamente — devuelve
-> `503 Forbidden` ante peticiones automatizadas, así que ese campo (`i`) sólo se
-> edita manualmente desde el formulario de edición de la web. (En teoría el mismo
-> truco de navegador real de Filmaffinity funcionaría, pero de momento no está hecho.)
+> **Nota:** IMDB bloquea las peticiones con `requests` (`503 Forbidden`), pero el
+> mismo truco de navegador real sí funciona. La nota de IMDb no se rellena desde este
+> script sino desde el botón del formulario de edición de la web (ver la sección de
+> `local_server.py` más abajo).
 
 ### Orden recomendado tras regenerar el Excel
 
@@ -139,6 +141,29 @@ la primera vez).
 El botón **🔄 Actualizar puntuaciones** de la barra de admin hace lo mismo que
 `fetch_tmdb_scores.py` pero desde el propio navegador (TMDB sí permite peticiones
 CORS desde JavaScript), pidiendo tu TMDB API key la primera vez.
+
+## `local_server.py` — actualizar IMDb/Filmaffinity desde la web
+
+TMDB se puede consultar directamente desde el navegador (permite CORS), pero IMDb y
+Filmaffinity lo bloquean. Para poder actualizarlos también desde la web, `local_server.py`
+—además de servir los ficheros— mantiene abierta **una sesión de navegador real**
+(undetected-chromedriver) y expone estos endpoints locales:
+
+- `POST /run-script { name: 'filmaffinity' }` y `GET /script-status` — lanzan y
+  monitorizan `fetch_filmaffinity.py` en segundo plano.
+- `GET /fetch-scores?imdb_url=&title=&year=&fa_url=` — devuelve la nota de IMDb y de
+  Filmaffinity (y la URL de FA encontrada) de una sola serie.
+
+Con la web abierta vía `local_server.py`, en modo admin aparecen:
+
+- **🔄 Actualizar puntuaciones i episodis** (dentro del formulario de edición de cada
+  serie): rellena TMDB + episodios (vía navegador), e IMDb + Filmaffinity + URL de FA
+  (vía `/fetch-scores`), recalcula la media y muestra un resumen de lo que cambió.
+- **🎬 Actualitzar Filmaffinity** (barra de admin): lanza `fetch_filmaffinity.py` para
+  todas las series que faltan, mostrando el progreso en directo.
+
+Estos botones sólo aparecen/funcionan cuando la web se sirve desde `localhost` con
+`local_server.py`; en GitHub Pages sólo está disponible la actualización de TMDB.
 
 ## Publicar en GitHub Pages
 
