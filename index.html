@@ -1504,8 +1504,9 @@ async function updateSingleScores() {
   if (tmid)   setVal('editTmid', tmid);
   if (tmtype) setVal('editTmtype', tmtype);
 
-  // 1b. Puntuació + episodis via TMDB (això sí que necessita API key).
-  if (tmid && tmtype) {
+  // 1b. Puntuació + episodis + poster via TMDB (això sí que necessita API key).
+  const imdbId = (s.u && s.u.match(/tt\d+/)) ? s.u.match(/tt\d+/)[0] : null;
+  if (tmid || imdbId) {
     let tmdbKey = localStorage.getItem('tmdb_key');
     if (!tmdbKey) {
       tmdbKey = prompt('Introdueix el teu TMDB API Key (v3):');
@@ -1514,6 +1515,22 @@ async function updateSingleScores() {
     if (!tmdbKey) {
       tmdbError = 'Falta la TMDB API Key (per a la puntuació).';
     } else {
+      // Fallback: si Wikidata no ha resolt el tmid, prova l'endpoint /find de TMDB.
+      if (!tmid && imdbId) {
+        try {
+          const f = await fetch(`https://api.themoviedb.org/3/find/${imdbId}?api_key=${tmdbKey}&external_source=imdb_id`).then(r => r.json());
+          const tv = f.tv_results?.[0], mv = f.movie_results?.[0];
+          if (tv) { tmid = tv.id; tmtype = 'tv'; } else if (mv) { tmid = mv.id; tmtype = 'movie'; }
+          if (tmid && tmtype) {
+            fmt('TMDB ID', s.tmid ?? '—', tmid);
+            setVal('editTmid', tmid); setVal('editTmtype', tmtype);
+          }
+        } catch (e) { /* es reportarà a sota si segueix sense tmid */ }
+      }
+    }
+    if (tmdbKey && !tmid) {
+      tmdbError = tmdbError || 'No s\'ha trobat el TMDB ID (ni Wikidata ni TMDB /find).';
+    } else if (tmdbKey && tmid && tmtype) {
       const fetchDetail = k => fetch(`https://api.themoviedb.org/3/${tmtype}/${tmid}?api_key=${k}`).then(r => r.json());
       try {
         let d = await fetchDetail(tmdbKey);
@@ -1535,6 +1552,11 @@ async function updateSingleScores() {
             const e = d.number_of_episodes;
             if (e !== (parseInt(document.getElementById('editEps').value)||null)) fmt('Episodis', document.getElementById('editEps').value||'—', e);
             setVal('editEps', e);
+          }
+          // Poster: només si la sèrie encara no en té.
+          if (d.poster_path && !document.getElementById('editPoster').value.trim()) {
+            setVal('editPoster', 'https://image.tmdb.org/t/p/w185' + d.poster_path);
+            fmt('Poster', '—', 'desat');
           }
         }
       } catch (e) {
