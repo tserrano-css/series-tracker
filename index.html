@@ -1466,6 +1466,39 @@ async function resolveTmidFromImdb(imdbId) {
   return null;
 }
 
+// Mapeja els noms de proveïdor de JustWatch (via TMDB /watch/providers, regió ES)
+// als noms de plataforma que fa servir aquesta web. Es compara per prefix perquè
+// JustWatch afegeix variants ("… with Ads", "… Amazon Channel", paquets, etc.).
+const PROVIDER_MAP = [
+  ['Netflix',            'Netflix'],
+  ['Amazon Prime Video', 'Prime Video'],
+  ['HBO Max',            'HBO MAX'],
+  ['Disney Plus',        'Disney+'],
+  ['Movistar Plus+',     'Movistar+'],
+  ['Filmin',             'Filmin'],
+  ['Crunchyroll',        'Crunchyroll'],
+  ['Apple TV',           'Apple TV'],
+  ['SkyShowtime',        'SkyShowtime'],
+  ['RTVE',               'TV España'],
+];
+
+function mapProvider(name) {
+  const n = (name || '').trim();
+  for (const [prefix, plat] of PROVIDER_MAP) {
+    if (n.toLowerCase().startsWith(prefix.toLowerCase())) return plat;
+  }
+  return null;   // proveïdors no reconeguts (Tivify, canals solts…) s'ignoren
+}
+
+// Consulta la disponibilitat a Espanya i retorna la llista de plataformes
+// (subscripció) reconegudes, sense duplicats.
+async function fetchPlatforms(tmtype, tmid, key) {
+  const d = await fetch(`https://api.themoviedb.org/3/${tmtype}/${tmid}/watch/providers?api_key=${key}`).then(r => r.json());
+  const flat = d.results?.ES?.flatrate || [];
+  const plats = flat.map(p => mapProvider(p.provider_name)).filter(Boolean);
+  return [...new Set(plats)];
+}
+
 async function updateSingleScores() {
   if (editingIdx < 0) return;
   const s = SERIES_DATA[editingIdx];
@@ -1566,6 +1599,20 @@ async function updateSingleScores() {
             setVal('editPoster', 'https://image.tmdb.org/t/p/w185' + d.poster_path);
             fmt('Poster', '—', 'desat');
           }
+          // Plataformes: disponibilitat a Espanya via JustWatch (TMDB /watch/providers).
+          // Només substitueix la selecció si s'ha detectat alguna plataforma coneguda.
+          try {
+            const plats = await fetchPlatforms(tmtype, tmid, localStorage.getItem('tmdb_key'));
+            if (plats.length) {
+              const boxes = [...document.querySelectorAll('input[name="plat"]')];
+              const before = boxes.filter(cb => cb.checked).map(cb => cb.value).join(', ');
+              const after  = plats.join(', ');
+              if (before !== after) {
+                boxes.forEach(cb => { cb.checked = plats.includes(cb.value); });
+                fmt('Plataforma', before || '—', after);
+              }
+            }
+          } catch (e) { /* la disponibilitat és opcional; no bloqueja la resta */ }
         }
       } catch (e) {
         tmdbError = `TMDB: ${e.message || e}`;
