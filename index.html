@@ -1553,6 +1553,14 @@ async function updateSingleScores() {
             if (e !== (parseInt(document.getElementById('editEps').value)||null)) fmt('Episodis', document.getElementById('editEps').value||'—', e);
             setVal('editEps', e);
           }
+          // Any d'inici: first_air_date (sèries) o release_date (pel·lícules).
+          const dateStr = d.first_air_date || d.release_date;
+          if (dateStr && /^\d{4}/.test(dateStr)) {
+            const y = parseInt(dateStr.slice(0, 4));
+            const yBefore = parseInt(document.getElementById('editYear').value) || null;
+            if (y !== yBefore) fmt('Any', yBefore, y);
+            setVal('editYear', y);
+          }
           // Poster: només si la sèrie encara no en té.
           if (d.poster_path && !document.getElementById('editPoster').value.trim()) {
             setVal('editPoster', 'https://image.tmdb.org/t/p/w185' + d.poster_path);
@@ -1573,7 +1581,7 @@ async function updateSingleScores() {
       const params = new URLSearchParams({
         imdb_url: s.u || '',
         title:    s.t || '',
-        year:     s.yr || '',
+        year:     document.getElementById('editYear').value || s.yr || '',
         fa_url:   document.getElementById('editFaUrl').value.trim() || '',
       });
       const res = await fetch(`${LOCAL_API}/fetch-scores?${params}`);
