@@ -739,8 +739,18 @@
     <option>Filmin</option>
     <option>Apple TV</option>
     <option>SkyShowtime</option>
-    <option>TV España</option>
     <option>Crunchyroll</option>
+    <option>Rakuten TV</option>
+    <option>fuboTV</option>
+    <option>Hayu</option>
+    <option>YouTube Premium</option>
+    <option>Pluto TV</option>
+    <option>Tivify</option>
+    <option>TV España</option>
+    <option>3Cat</option>
+    <option>Atresplayer</option>
+    <option>FlixOlé</option>
+    <option>Acontra Plus</option>
     <option>Otra</option>
   </select>
 
@@ -884,7 +894,19 @@ function getMainPlatform(p) {
   if (l.includes('filmin')) return 'Filmin';
   if (l.includes('skyshowtime') || (l.includes('sky') && !l.includes('skyline'))) return 'SkyShowtime';
   if (l.includes('crunchyroll')) return 'Crunchyroll';
-  if (l.includes('rtve') || l.includes('tv3') || l.includes('tve') || l.includes('atres') || l.includes('moviestar') || l.includes('telecinco') || l.includes('antena')) return 'TV España';
+  // Plataformes específiques (abans del calaix de sastre "TV España", que
+  // altrament s'empassaria atresplayer i 3Cat/TV3).
+  if (l.includes('3cat') || l.includes('tv3')) return '3Cat';
+  if (l.includes('atres') || l.includes('antena')) return 'Atresplayer';
+  if (l.includes('flixol')) return 'FlixOlé';
+  if (l.includes('acontra')) return 'Acontra Plus';
+  if (l.includes('rakuten')) return 'Rakuten TV';
+  if (l.includes('fubo')) return 'fuboTV';
+  if (l.includes('hayu')) return 'Hayu';
+  if (l.includes('youtube')) return 'YouTube Premium';
+  if (l.includes('pluto')) return 'Pluto TV';
+  if (l.includes('tivify')) return 'Tivify';
+  if (l.includes('rtve') || l.includes('tve') || l.includes('telecinco')) return 'TV España';
   return 'Otra';
 }
 
@@ -1094,6 +1116,18 @@ const PLAT_CFG = {
   'Movistar+':  { wm: 'https://upload.wikimedia.org/wikipedia/commons/1/1d/Movistar_Plus%2B_2022_logo.svg', h: 16 },
   'Filmin':     { wm: 'https://upload.wikimedia.org/wikipedia/commons/f/f5/Logo_Filmin_2023.png', h: 12 },
   'TV España':  { badge: 'TVE',    bg: '#C60B1E', fg: '#fff' },
+  // Simple Icons verificats (slugs que existeixen al CDN)
+  'Rakuten TV':      { si: 'rakuten', color: 'BF0000', h: 14 },
+  'fuboTV':          { si: 'fubo',    color: 'C8102E', h: 14 },
+  'YouTube Premium': { si: 'youtube', color: 'FF0000', h: 14 },
+  // Sense logo a Simple Icons → insígnia de text amb el color de marca
+  'Hayu':         { badge: 'hayu',    bg: '#E6007E', fg: '#fff' },
+  'Pluto TV':     { badge: 'Pluto',   bg: '#FFE01B', fg: '#000' },
+  'Tivify':       { badge: 'Tivify',  bg: '#00B7C3', fg: '#fff' },
+  '3Cat':         { badge: '3Cat',    bg: '#0089CF', fg: '#fff' },
+  'Atresplayer':  { badge: 'atres',   bg: '#FF6B00', fg: '#fff' },
+  'FlixOlé':      { badge: 'FlixOlé', bg: '#D4002A', fg: '#fff' },
+  'Acontra Plus': { badge: 'Acontra', bg: '#5B21B6', fg: '#fff' },
 };
 
 function platformBadge(raw) {
@@ -1187,8 +1221,18 @@ function goPage(p) {
             <label class="plat-cb"><input type="checkbox" name="plat" value="Filmin"> Filmin</label>
             <label class="plat-cb"><input type="checkbox" name="plat" value="Apple TV"> Apple TV</label>
             <label class="plat-cb"><input type="checkbox" name="plat" value="SkyShowtime"> SkyShowtime</label>
-            <label class="plat-cb"><input type="checkbox" name="plat" value="TV España"> TV España</label>
             <label class="plat-cb"><input type="checkbox" name="plat" value="Crunchyroll"> Crunchyroll</label>
+            <label class="plat-cb"><input type="checkbox" name="plat" value="Rakuten TV"> Rakuten TV</label>
+            <label class="plat-cb"><input type="checkbox" name="plat" value="fuboTV"> fuboTV</label>
+            <label class="plat-cb"><input type="checkbox" name="plat" value="Hayu"> Hayu</label>
+            <label class="plat-cb"><input type="checkbox" name="plat" value="YouTube Premium"> YouTube Premium</label>
+            <label class="plat-cb"><input type="checkbox" name="plat" value="Pluto TV"> Pluto TV</label>
+            <label class="plat-cb"><input type="checkbox" name="plat" value="Tivify"> Tivify</label>
+            <label class="plat-cb"><input type="checkbox" name="plat" value="TV España"> TV España</label>
+            <label class="plat-cb"><input type="checkbox" name="plat" value="3Cat"> 3Cat</label>
+            <label class="plat-cb"><input type="checkbox" name="plat" value="Atresplayer"> Atresplayer</label>
+            <label class="plat-cb"><input type="checkbox" name="plat" value="FlixOlé"> FlixOlé</label>
+            <label class="plat-cb"><input type="checkbox" name="plat" value="Acontra Plus"> Acontra Plus</label>
             <label class="plat-cb"><input type="checkbox" name="plat" value="Otra"> Otra</label>
           </div>
         </label>
@@ -1479,7 +1523,17 @@ const PROVIDER_MAP = [
   ['Crunchyroll',        'Crunchyroll'],
   ['Apple TV',           'Apple TV'],
   ['SkyShowtime',        'SkyShowtime'],
-  ['RTVE',               'TV España'],
+  ['Rakuten TV',         'Rakuten TV'],
+  ['fuboTV',             'fuboTV'],
+  ['Hayu',               'Hayu'],
+  ['YouTube Premium',    'YouTube Premium'],
+  ['Pluto TV',           'Pluto TV'],
+  ['Tivify',             'Tivify'],
+  ['3Cat',               '3Cat'],
+  ['Atres Player',       'Atresplayer'],
+  ['FlixOlé',            'FlixOlé'],
+  ['Acontra Plus',       'Acontra Plus'],
+  ['rtve',               'TV España'],
 ];
 
 function mapProvider(name) {
