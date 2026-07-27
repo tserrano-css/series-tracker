@@ -888,9 +888,9 @@ function getMainPlatform(p) {
   if (l.includes('netflix')) return 'Netflix';
   if (l.includes('amazon') || l.includes('prime video') || l.includes('primevideo')) return 'Prime Video';
   if (l.includes('disney')) return 'Disney+';
-  if (l.includes('max') && !l.includes('moviestar')) return 'HBO MAX';
+  if (l.includes('max') && !l.includes('moviestar') && !l.includes('movistar')) return 'HBO MAX';
   if (l.includes('apple')) return 'Apple TV';
-  if (l.includes('moviestar')) return 'Movistar+';
+  if (l.includes('moviestar') || l.includes('movistar')) return 'Movistar+';
   if (l.includes('filmin')) return 'Filmin';
   if (l.includes('skyshowtime') || (l.includes('sky') && !l.includes('skyline'))) return 'SkyShowtime';
   if (l.includes('crunchyroll')) return 'Crunchyroll';
