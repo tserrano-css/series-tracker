@@ -797,7 +797,7 @@ const i18n = {
     pendents: 'pendents', novaTemp: 'nova temp.', animacio: 'animació',
     searchPlaceholder: 'Cercar sèrie, plataforma...',
     totes: 'Totes', btnVistes: '✅ Vistes', btnVeient: '▶️ Veient',
-    btnPendents: '🔵 Pendents', btnNovaTemp: '🔔 Pend. nova temp.', btnAnim: '🎨 Animació', btnEstrena: '📅 Estrena',
+    btnPendents: '🔵 Pendents', btnNovaTemp: '🔔 Pend. nova temp.', btnAnim: '🎨 Animació', btnAnimOnly: '🎨 Només animació', btnAnimExclude: '🚫 Sense animació', btnEstrena: '📅 Estrena',
     totesPlat: 'Totes les plataformes', ordenar: 'Ordenar:',
     sortMedia: 'Mitjana ↓', sortEps: 'Més episodis', labelMitjana: 'Mitjana',
     mostrant: (n, t) => `Mostrant <strong>${n}</strong> de <strong>${t}</strong> sèries`,
@@ -818,7 +818,7 @@ const i18n = {
     pendents: 'pendientes', novaTemp: 'nueva temp.', animacio: 'animación',
     searchPlaceholder: 'Buscar serie, plataforma...',
     totes: 'Todas', btnVistes: '✅ Vistas', btnVeient: '▶️ Viendo',
-    btnPendents: '🔵 Pendientes', btnNovaTemp: '🔔 Pend. nueva temp.', btnAnim: '🎨 Animación', btnEstrena: '📅 Estreno',
+    btnPendents: '🔵 Pendientes', btnNovaTemp: '🔔 Pend. nueva temp.', btnAnim: '🎨 Animación', btnAnimOnly: '🎨 Solo animación', btnAnimExclude: '🚫 Sin animación', btnEstrena: '📅 Estreno',
     totesPlat: 'Todas las plataformas', ordenar: 'Ordenar:',
     sortMedia: 'Media ↓', sortEps: 'Más episodios', labelMitjana: 'Media',
     mostrant: (n, t) => `Mostrando <strong>${n}</strong> de <strong>${t}</strong> series`,
@@ -880,7 +880,7 @@ fetch('series.json', { cache: 'no-store' })
 const PAGE_SIZE = 60;
 let currentPage = 1;
 let filtered = [];
-let activeFilters = { estado: 'all', animacion: false, estrena: false };
+let activeFilters = { estado: 'all', animacion: 'off', estrena: false };
 
 function getMainPlatform(p) {
   if (!p || p === '?') return 'Otra';
@@ -926,7 +926,7 @@ function renderStats() {
   btns[2].textContent = `${t.btnVeient} (${viendo})`;
   btns[3].textContent = `${t.btnPendents} (${pendents})`;
   btns[4].textContent = `${t.btnNovaTemp} (${novaTemp})`;
-  document.getElementById('btnAnim').textContent = `${t.btnAnim} (${anim})`;
+  updateAnimButton();
   const estrenaCount = SERIES_DATA.filter(s => s.es && s.es.trim()).length;
   document.getElementById('btnEstrena').textContent = `${t.btnEstrena} (${estrenaCount})`;
 }
@@ -939,11 +939,23 @@ function setFilter(key, val, el) {
   applyFilters();
 }
 
+// Botó de 3 estats: 'off' (totes) → 'only' (només animació) → 'exclude' (sense animació) → 'off'
 function toggleAnim(el) {
-  activeFilters.animacion = !activeFilters.animacion;
-  el.classList.toggle('active', activeFilters.animacion);
+  const next = { off: 'only', only: 'exclude', exclude: 'off' };
+  activeFilters.animacion = next[activeFilters.animacion] || 'only';
+  updateAnimButton();
   currentPage = 1;
   applyFilters();
+}
+
+function updateAnimButton() {
+  const t = i18n[lang];
+  const anim = SERIES_DATA.filter(s => s.a).length;
+  const btn = document.getElementById('btnAnim');
+  const st = activeFilters.animacion;
+  const label = st === 'only' ? t.btnAnimOnly : st === 'exclude' ? t.btnAnimExclude : t.btnAnim;
+  btn.textContent = `${label} (${anim})`;
+  btn.classList.toggle('active', st !== 'off');
 }
 
 function toggleEstrena(el) {
@@ -958,14 +970,15 @@ function applyFilters() {
   const plat = document.getElementById('platformFilter').value;
   const sort = document.getElementById('sortFilter').value;
   const estado = activeFilters.estado || 'all';
-  const soloAnim = activeFilters.animacion;
+  const animFilter = activeFilters.animacion;
 
   filtered = SERIES_DATA.filter(s => {
     if (estado === 'vista' && (!s.v || s.w)) return false;
     if (estado === 'viendo' && !s.w) return false;
     if (estado === 'pendiente' && s.v) return false;
     if (estado === 'nova_temp' && !s.nt) return false;
-    if (soloAnim && !s.a) return false;
+    if (animFilter === 'only' && !s.a) return false;
+    if (animFilter === 'exclude' && s.a) return false;
     if (activeFilters.estrena && !(s.es && s.es.trim())) return false;
     if (plat && s.pm !== plat) return false;
     if (q && !s.t.toLowerCase().includes(q) && !s.p.toLowerCase().includes(q)) return false;
