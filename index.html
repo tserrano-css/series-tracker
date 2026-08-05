@@ -1561,8 +1561,11 @@ function mapProvider(name) {
 // (subscripció) reconegudes, sense duplicats.
 async function fetchPlatforms(tmtype, tmid, key) {
   const d = await fetch(`https://api.themoviedb.org/3/${tmtype}/${tmid}/watch/providers?api_key=${key}`).then(r => r.json());
-  const flat = d.results?.ES?.flatrate || [];
-  const plats = flat.map(p => mapProvider(p.provider_name)).filter(Boolean);
+  const es = d.results?.ES || {};
+  // Inclou subscripció (flatrate) i també contingut gratuït (free/ads),
+  // p.ex. 3Cat o RTVE apareixen sota "free", no "flatrate".
+  const all = [...(es.flatrate || []), ...(es.free || []), ...(es.ads || [])];
+  const plats = all.map(p => mapProvider(p.provider_name)).filter(Boolean);
   return [...new Set(plats)];
 }
 
