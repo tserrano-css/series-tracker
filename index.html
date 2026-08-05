@@ -1669,18 +1669,19 @@ async function updateSingleScores() {
             setVal('editPoster', 'https://image.tmdb.org/t/p/w185' + d.poster_path);
             fmt('Poster', '—', 'desat');
           }
-          // Plataformes: disponibilitat a Espanya via JustWatch (TMDB /watch/providers).
-          // Només substitueix la selecció si s'ha detectat alguna plataforma coneguda.
+          // Plataformes: sincronitza EXACTAMENT amb la disponibilitat a Espanya
+          // segons JustWatch (TMDB /watch/providers). Substitueix del tot la
+          // selecció, incloent buidar-la si JustWatch no reporta cap plataforma
+          // (p.ex. dades antigues errònies). Si la crida falla (throw), es manté
+          // la selecció actual perquè no s'esborri per un error de xarxa.
           try {
             const plats = await fetchPlatforms(tmtype, tmid, localStorage.getItem('tmdb_key'));
-            if (plats.length) {
-              const boxes = [...document.querySelectorAll('input[name="plat"]')];
-              const before = boxes.filter(cb => cb.checked).map(cb => cb.value).join(', ');
-              const after  = plats.join(', ');
-              if (before !== after) {
-                boxes.forEach(cb => { cb.checked = plats.includes(cb.value); });
-                fmt('Plataforma', before || '—', after);
-              }
+            const boxes = [...document.querySelectorAll('input[name="plat"]')];
+            const before = boxes.filter(cb => cb.checked).map(cb => cb.value).join(', ');
+            const after  = plats.join(', ');
+            if (before !== after) {
+              boxes.forEach(cb => { cb.checked = plats.includes(cb.value); });
+              fmt('Plataforma', before || '—', after || '—');
             }
           } catch (e) { /* la disponibilitat és opcional; no bloqueja la resta */ }
         }
