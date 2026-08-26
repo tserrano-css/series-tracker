@@ -13,6 +13,7 @@ import json
 import subprocess
 import sys
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlparse, parse_qs
 
 PORT = 8080
@@ -32,23 +33,58 @@ _driver = None
 _driver_lock = threading.Lock()
 
 
+def _run_with_timeout(fn, timeout):
+    """Run `fn` in a worker thread, raising if it doesn't finish in `timeout`
+    seconds. Selenium calls can hang forever (not just raise) when the
+    underlying chromedriver/chrome process is dead-but-not-quite, so a plain
+    try/except around them is not enough — this bounds the wait."""
+    with ThreadPoolExecutor(max_workers=1) as ex:
+        return ex.submit(fn).result(timeout=timeout)
+
+
+def _kill_driver(driver):
+    """Terminate a browser session for good, however broken it is.
+
+    undetected-chromedriver's quit() can hang forever, or return without
+    actually closing the OS process, if the chromedriver side already died.
+    Left unchecked this leaks a chrome.exe (plus its child processes) every
+    time a session is respawned — which is exactly what happened here: dozens
+    of orphaned chrome.exe piled up over repeated "actualitzar" clicks until
+    the machine choked and the whole local_server.py stopped responding to
+    ANY request, including plain static file serving.
+
+    So: try a clean quit() with a short timeout, then ALWAYS force-kill the
+    process tree by PID as a backstop, regardless of whether quit() said it
+    succeeded."""
+    pid = getattr(driver, 'browser_pid', None)
+    try:
+        _run_with_timeout(driver.quit, timeout=5)
+    except Exception:
+        pass
+    if pid:
+        try:
+            subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)],
+                            capture_output=True, timeout=5)
+        except Exception:
+            pass
+
+
 def get_driver():
     """Return a live browser session, recreating it if the previous one died.
 
     undetected-chromedriver drives a *visible* Chrome window; if it gets closed
     (manually, or by a crash) the session becomes invalid and every scrape
     returns None forever. So we probe the session on each use and respawn it
-    when it's dead, instead of only creating one when `_driver is None`."""
+    when it's dead, instead of only creating one when `_driver is None`.
+    The probe itself is time-bounded — a half-dead chromedriver can hang on
+    `.current_url` instead of raising."""
     global _driver
     if _driver is not None:
         try:
-            _ = _driver.current_url        # cheap liveness probe
+            _run_with_timeout(lambda: _driver.current_url, timeout=5)
         except Exception:
-            print('  Sessió de navegador morta → recreant-la…')
-            try:
-                _driver.quit()
-            except Exception:
-                pass
+            print('  Sessió de navegador morta o penjada → recreant-la…')
+            _kill_driver(_driver)
             _driver = None
     if _driver is None:
         import fetch_filmaffinity as F
@@ -167,10 +203,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 def _cleanup():
     global _driver
     if _driver is not None:
-        try:
-            _driver.quit()
-        except Exception:
-            pass
+        _kill_driver(_driver)
         _driver = None
 
 
