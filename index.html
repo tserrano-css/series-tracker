@@ -1677,11 +1677,14 @@ async function updateSingleScores() {
           try {
             const plats = await fetchPlatforms(tmtype, tmid, localStorage.getItem('tmdb_key'));
             const boxes = [...document.querySelectorAll('input[name="plat"]')];
-            const before = boxes.filter(cb => cb.checked).map(cb => cb.value).join(', ');
-            const after  = plats.join(', ');
-            if (before !== after) {
+            const beforeSet = boxes.filter(cb => cb.checked).map(cb => cb.value);
+            // Compara com a conjunts (ordenats), no com a text: el mateix
+            // grup de plataformes en ordre diferent no ha de comptar com a canvi.
+            const same = beforeSet.length === plats.length &&
+                         [...beforeSet].sort().join('|') === [...plats].sort().join('|');
+            if (!same) {
               boxes.forEach(cb => { cb.checked = plats.includes(cb.value); });
-              fmt('Plataforma', before || '—', after || '—');
+              fmt('Plataforma', beforeSet.join(', ') || '—', plats.join(', ') || '—');
             }
           } catch (e) { /* la disponibilitat és opcional; no bloqueja la resta */ }
         }
