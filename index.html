@@ -1637,14 +1637,31 @@ async function updateSingleScores() {
       const fetchDetail = k => fetch(`https://api.themoviedb.org/3/${tmtype}/${tmid}?api_key=${k}`).then(r => r.json());
       try {
         let d = await fetchDetail(tmdbKey);
-        // Auto-recuperació sense consola: si la key desada és invàlida, esborra-la i demana'n una de nova.
-        if (d.success === false) {
+        // status_code 7 = key invàlida/no autoritzada → cal demanar-ne una de nova.
+        // status_code 34 = "resource not found": la key és bona, però el tmid/tmtype
+        // (sovint resolt via Wikidata) apunta a un id que TMDB ja no té. En aquest
+        // cas NO s'ha de tocar la key — cal reintentar l'id via /find per imdb_id.
+        if (d.status_code === 34 && imdbId) {
+          try {
+            const f = await fetch(`https://api.themoviedb.org/3/find/${imdbId}?api_key=${tmdbKey}&external_source=imdb_id`).then(r => r.json());
+            const tv = f.tv_results?.[0], mv = f.movie_results?.[0];
+            if (tv) { tmid = tv.id; tmtype = 'tv'; } else if (mv) { tmid = mv.id; tmtype = 'movie'; }
+            if (tmid && tmtype) {
+              fmt('TMDB ID', s.tmid ?? '—', tmid);
+              setVal('editTmid', tmid); setVal('editTmtype', tmtype);
+              d = await fetchDetail(tmdbKey);
+            }
+          } catch (e) { /* es reportarà a sota amb l'status_message original */ }
+        }
+        // Auto-recuperació sense consola: si la key desada és realment invàlida,
+        // esborra-la i demana'n una de nova. Només per errors d'autenticació.
+        if (d.success === false && d.status_code === 7) {
           localStorage.removeItem('tmdb_key');
           const nk = prompt(`La TMDB API Key desada no és vàlida:\n${d.status_message || ''}\n\nIntrodueix-ne una de nova (v3), o Cancel·la:`);
           if (nk) { localStorage.setItem('tmdb_key', nk.trim()); d = await fetchDetail(nk.trim()); }
         }
         if (d.success === false) {
-          tmdbError = `TMDB: ${d.status_message || 'API key invàlida'}`;
+          tmdbError = `TMDB: ${d.status_message || 'error en obtenir la puntuació'}`;
         } else {
           if (d.vote_average) {
             const v = Math.round(d.vote_average * 10) / 10;
