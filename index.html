@@ -481,6 +481,20 @@
     margin-top: auto;
   }
 
+  .footer-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .updated-note {
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
   .episodes-badge {
     font-size: 11px;
     color: var(--text-dim);
@@ -760,8 +774,11 @@
     <option value="media">Media ↓</option>
     <option value="imdb">IMDB ↓</option>
     <option value="fa">Filmaffinity ↓</option>
+    <option value="tmdb">TMDB ↓</option>
     <option value="az">A-Z</option>
     <option value="episodios">Más episodios</option>
+    <option value="upd_desc" id="sortUpdDesc">Actualitzat ↓</option>
+    <option value="upd_asc" id="sortUpdAsc">Actualitzat ↑</option>
   </select>
   </div>
 </div>
@@ -800,6 +817,7 @@ const i18n = {
     btnPendents: '🔵 Pendents', btnNovaTemp: '🔔 Pend. nova temp.', btnAnim: '🎨 Animació', btnAnimOnly: '🎨 Només animació', btnAnimExclude: '🚫 Sense animació', btnEstrena: '📅 Estrena',
     totesPlat: 'Totes les plataformes', ordenar: 'Ordenar:',
     sortMedia: 'Mitjana ↓', sortEps: 'Més episodis', labelMitjana: 'Mitjana',
+    sortUpdDesc: 'Actualitzat ↓', sortUpdAsc: 'Actualitzat ↑',
     mostrant: (n, t) => `Mostrant <strong>${n}</strong> de <strong>${t}</strong> sèries`,
     pagina: (c, t) => `Pàgina ${c} de ${t}`,
     carregant: 'Carregant...',
@@ -821,6 +839,7 @@ const i18n = {
     btnPendents: '🔵 Pendientes', btnNovaTemp: '🔔 Pend. nueva temp.', btnAnim: '🎨 Animación', btnAnimOnly: '🎨 Solo animación', btnAnimExclude: '🚫 Sin animación', btnEstrena: '📅 Estreno',
     totesPlat: 'Todas las plataformas', ordenar: 'Ordenar:',
     sortMedia: 'Media ↓', sortEps: 'Más episodios', labelMitjana: 'Media',
+    sortUpdDesc: 'Actualizado ↓', sortUpdAsc: 'Actualizado ↑',
     mostrant: (n, t) => `Mostrando <strong>${n}</strong> de <strong>${t}</strong> series`,
     pagina: (c, t) => `Página ${c} de ${t}`,
     carregant: 'Cargando...',
@@ -846,6 +865,8 @@ function applyLang() {
   document.getElementById('sortLabel').textContent = t.ordenar;
   document.querySelector('#sortFilter option[value="media"]').textContent = t.sortMedia;
   document.querySelector('#sortFilter option[value="episodios"]').textContent = t.sortEps;
+  document.getElementById('sortUpdDesc').textContent = t.sortUpdDesc;
+  document.getElementById('sortUpdAsc').textContent = t.sortUpdAsc;
   document.getElementById('btnLang').textContent = lang === 'ca' ? 'ES' : 'CA';
   localStorage.setItem('lang', lang);
   if (SERIES_DATA.length > 0) { renderStats(); renderResults(); }
@@ -990,8 +1011,13 @@ function applyFilters() {
     if (sort === 'media') return (b.m || 0) - (a.m || 0);
     if (sort === 'imdb') return (b.i || 0) - (a.i || 0);
     if (sort === 'fa') return (b.f || 0) - (a.f || 0);
+    if (sort === 'tmdb') return (b.tm || 0) - (a.tm || 0);
     if (sort === 'az') return a.t.localeCompare(b.t, 'es');
     if (sort === 'episodios') return (b.e || 0) - (a.e || 0);
+    // 'upd' és un ISO "YYYY-MM-DDTHH:MM": compara bé com a text (ordre cronològic).
+    // Les sèries sense data ('' ordena abans que qualsevol data) queden al final en ↓.
+    if (sort === 'upd_desc') return (b.upd || '').localeCompare(a.upd || '');
+    if (sort === 'upd_asc')  return (a.upd || '').localeCompare(b.upd || '');
     return 0;
   });
 
@@ -1057,6 +1083,12 @@ function renderCard(s) {
   // Episodes
   const epsText = s.e ? `📽 ${s.e} ep.` : '';
 
+  // Última actualització (discret, al peu de la targeta)
+  const updatedText = formatUpdated(s.upd);
+  const updatedNote = updatedText
+    ? `<span class="updated-note" title="Última actualització: ${escHtml(s.upd)}">🕓 ${updatedText}</span>`
+    : '';
+
   // Estreno note
   let estrenoNote = '';
   if (s.es && s.es !== '' && s.es !== 'nan') {
@@ -1112,7 +1144,10 @@ function renderCard(s) {
   </div>
   ${estrenoNote}${seasonsInfo}
   <div class="card-footer">
-    <div class="episodes-badge">${epsText}</div>
+    <div class="footer-left">
+      <div class="episodes-badge">${epsText}</div>
+      ${updatedNote}
+    </div>
     <div class="card-tags">${tags.join('')}</div>
   </div>
 </div>`;
@@ -1166,6 +1201,22 @@ function platformBadge(raw) {
 
 function escHtml(str) {
   return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Marca temporal de "última actualització" (camp `upd`). Format ISO local
+// "YYYY-MM-DDTHH:MM" (sense segons): ordenable com a text i llegible.
+function nowStamp() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+// dd/mm/aa per mostrar-lo discret a la targeta; null si no hi ha data.
+function formatUpdated(upd) {
+  if (!upd) return null;
+  const m = upd.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  return `${m[3]}/${m[2]}/${m[1].slice(2)}`;
 }
 
 function renderPagination(cur, total) {
@@ -1798,6 +1849,14 @@ function saveEdit() {
     estat, pm: getMainPlatform(plat),
   };
 
+  // Marca `upd` (última actualització) només si alguna dada ha canviat de veritat
+  // — comparat camp a camp amb la sèrie anterior, tractant null/undefined/'' com
+  // a "buit" perquè no generi falsos positius. Una sèrie nova sempre compta.
+  const norm = v => (v === undefined || v === null || v === '') ? '' : v;
+  const changedNow = editingIdx === -1 ||
+    Object.keys(updated).some(k => norm(prev[k]) !== norm(updated[k]));
+  updated.upd = changedNow ? nowStamp() : prev.upd;
+
   if (editingIdx === -1) {
     SERIES_DATA.push(updated);
   } else {
@@ -1903,10 +1962,12 @@ async function runUpdateScores() {
           }
         }
 
-        if (score && score !== s.tm) { s.tm = score; updScore++; }
-        if (episodes && episodes !== s.e) { s.e = episodes; updEps++; }
+        let touched = false;
+        if (score && score !== s.tm) { s.tm = score; updScore++; touched = true; }
+        if (episodes && episodes !== s.e) { s.e = episodes; updEps++; touched = true; }
         const newMedia = calcMedia(s.i, s.f, s.tm);
         if (newMedia) s.m = newMedia;
+        if (touched) s.upd = nowStamp();
 
       } catch(e) { errors++; }
     }));
