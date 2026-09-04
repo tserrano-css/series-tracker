@@ -1016,8 +1016,9 @@ function applyFilters() {
     if (sort === 'episodios') return (b.e || 0) - (a.e || 0);
     // 'upd' és un ISO "YYYY-MM-DDTHH:MM": compara bé com a text (ordre cronològic).
     // Les sèries sense data ('' ordena abans que qualsevol data) queden al final en ↓.
-    if (sort === 'upd_desc') return (b.upd || '').localeCompare(a.upd || '');
-    if (sort === 'upd_asc')  return (a.upd || '').localeCompare(b.upd || '');
+    // Desempat (mateixa data, o totes dues sense data): puntuació mitjana ↓.
+    if (sort === 'upd_desc') return (b.upd || '').localeCompare(a.upd || '') || (b.m || 0) - (a.m || 0);
+    if (sort === 'upd_asc')  return (a.upd || '').localeCompare(b.upd || '') || (b.m || 0) - (a.m || 0);
     return 0;
   });
 
