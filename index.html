@@ -1477,9 +1477,15 @@ function clearToken() {
 
 // ── EDIT / ADD / DELETE ──────────────────────────────────────────────────────
 let editingIdx = -1;
+// Es posa a true quan es prem "Actualitzar puntuacions i episodis" dins del
+// formulari. saveEdit el fa servir per marcar `upd` encara que la comprovació
+// no hagi trobat cap dada diferent — l'acció de comprovar ja compta com a
+// actualització. Es reinicia cada cop que s'obre/tanca el modal d'edició.
+let scoresCheckedThisEdit = false;
 
 function openEditSeries(idx) {
   editingIdx = idx;
+  scoresCheckedThisEdit = false;
   const s = SERIES_DATA[idx];
   document.getElementById('editModalTitle').textContent = '✏️ ' + s.t;
   document.getElementById('editTitle').value   = s.t || '';
@@ -1509,6 +1515,7 @@ function openEditSeries(idx) {
 
 function openAddSeries() {
   editingIdx = -1;
+  scoresCheckedThisEdit = false;
   document.getElementById('editModalTitle').textContent = '➕ Nova sèrie';
   document.getElementById('editForm').reset();
   document.getElementById('editEstat').value = 'No comencada';
@@ -1623,6 +1630,7 @@ async function fetchPlatforms(tmtype, tmid, key) {
 
 async function updateSingleScores() {
   if (editingIdx < 0) return;
+  scoresCheckedThisEdit = true;
   const s = SERIES_DATA[editingIdx];
   const btn = document.getElementById('btnUpdateSingle');
   const statusEl = document.getElementById('updateSingleStatus');
@@ -1850,11 +1858,13 @@ function saveEdit() {
     estat, pm: getMainPlatform(plat),
   };
 
-  // Marca `upd` (última actualització) només si alguna dada ha canviat de veritat
+  // Marca `upd` (última actualització) si alguna dada ha canviat de veritat
   // — comparat camp a camp amb la sèrie anterior, tractant null/undefined/'' com
-  // a "buit" perquè no generi falsos positius. Una sèrie nova sempre compta.
+  // a "buit" perquè no generi falsos positius — o si s'ha premut "Actualitzar
+  // puntuacions i episodis" (l'acció de comprovar ja compta, encara que no
+  // trobés cap valor diferent). Una sèrie nova sempre compta.
   const norm = v => (v === undefined || v === null || v === '') ? '' : v;
-  const changedNow = editingIdx === -1 ||
+  const changedNow = editingIdx === -1 || scoresCheckedThisEdit ||
     Object.keys(updated).some(k => norm(prev[k]) !== norm(updated[k]));
   updated.upd = changedNow ? nowStamp() : prev.upd;
 
