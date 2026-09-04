@@ -1205,11 +1205,11 @@ function escHtml(str) {
 }
 
 // Marca temporal de "última actualització" (camp `upd`). Format ISO local
-// "YYYY-MM-DDTHH:MM" (sense segons): ordenable com a text i llegible.
+// "YYYY-MM-DD" (només data, sense hora): ordenable com a text i llegible.
 function nowStamp() {
   const d = new Date();
   const p = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
 }
 
 // dd/mm/aa per mostrar-lo discret a la targeta; null si no hi ha data.
