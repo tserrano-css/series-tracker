@@ -69,6 +69,57 @@ def _kill_driver(driver):
             pass
 
 
+def _running_chrome_pids():
+    """Best-effort snapshot of every chrome.exe PID currently running."""
+    try:
+        out = subprocess.run(
+            ['tasklist', '/FI', 'IMAGENAME eq chrome.exe', '/FO', 'CSV', '/NH'],
+            capture_output=True, text=True, timeout=5,
+        ).stdout
+        pids = set()
+        for line in out.splitlines():
+            parts = [p.strip('"') for p in line.split('","')]
+            if len(parts) >= 2 and parts[1].isdigit():
+                pids.add(int(parts[1]))
+        return pids
+    except Exception:
+        return set()
+
+
+def _kill_pids(pids):
+    for pid in pids:
+        try:
+            subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)],
+                            capture_output=True, timeout=5)
+        except Exception:
+            pass
+
+
+def _make_driver_cleanly():
+    """Call fetch_filmaffinity.make_driver(), sweeping up any chrome.exe it
+    leaves orphaned if it fails partway through.
+
+    undetected-chromedriver launches the actual Chrome *process* itself,
+    separately from the chromedriver handshake — if chromedriver then crashes
+    before that handshake finishes (seen in the wild as "Service ... exited
+    unexpectedly"), make_driver() raises and we never get a driver object, so
+    there is no `.browser_pid` to close: the just-launched Chrome is orphaned
+    with nothing left to kill it. That's how these pile up silently, one per
+    failed attempt, until the machine chokes.
+
+    Fix: snapshot chrome.exe PIDs before the attempt; on failure, kill
+    whatever new PIDs appeared, then retry once (the failure is usually a
+    transient leftover-profile-lock race that clears up immediately)."""
+    import fetch_filmaffinity as F
+    before = _running_chrome_pids()
+    try:
+        return F.make_driver()
+    except Exception:
+        _kill_pids(_running_chrome_pids() - before)
+        print('  Neteja de processos orfes feta → reintentant crear el navegador…')
+        return F.make_driver()  # si torna a fallar, que pugi l'excepció
+
+
 def get_driver():
     """Return a live browser session, recreating it if the previous one died.
 
@@ -87,8 +138,7 @@ def get_driver():
             _kill_driver(_driver)
             _driver = None
     if _driver is None:
-        import fetch_filmaffinity as F
-        _driver = F.make_driver()
+        _driver = _make_driver_cleanly()
     return _driver
 
 
