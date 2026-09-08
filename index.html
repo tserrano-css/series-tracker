@@ -1425,6 +1425,31 @@ const GH_FILE  = 'series.json';
 let adminMode = false;
 let logoClicks = 0, logoTimer = null;
 
+// Sha de referència capturat abans d'una actualització massiva (per detectar
+// si algú ha desat a GitHub mentre s'executava, en comptes de sobreescriure-ho
+// sense mirar). Vegeu runUpdateScores() / pushToGitHub().
+let bulkUpdateBaseSha = null;
+
+function b64ToUtf8(b64) {
+  return decodeURIComponent(escape(atob(b64)));
+}
+function utf8ToB64(str) {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+
+// Llegeix SEMPRE l'última versió de series.json a GitHub (mai la còpia en
+// memòria d'aquesta pestanya, que pot ser vella si fa temps que és oberta).
+async function fetchFreshSeriesData() {
+  const token = localStorage.getItem('gh_token');
+  const api = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}`;
+  const headers = { Accept: 'application/vnd.github.v3+json' };
+  if (token) headers.Authorization = `token ${token}`;
+  const meta = await fetch(api, { headers });
+  if (!meta.ok) throw new Error(`No s'ha pogut llegir el fitxer (${meta.status})`);
+  const { sha, content } = await meta.json();
+  return { data: JSON.parse(b64ToUtf8(content)), sha };
+}
+
 function logoClick() {
   logoClicks++;
   clearTimeout(logoTimer);
@@ -1536,7 +1561,7 @@ function deleteSeries() {
   SERIES_DATA.splice(editingIdx, 1);
   closeEditModal();
   renderStats(); applyFilters();
-  pushToGitHub();
+  pushSeriesToGitHub(s.t, null);
 }
 
 // Sincronitza cada enllaç ↗ amb el valor actual del seu camp d'URL.
@@ -1868,6 +1893,8 @@ function saveEdit() {
     Object.keys(updated).some(k => norm(prev[k]) !== norm(updated[k]));
   updated.upd = changedNow ? nowStamp() : prev.upd;
 
+  const prevTitle = editingIdx === -1 ? '' : prev.t;
+
   if (editingIdx === -1) {
     SERIES_DATA.push(updated);
   } else {
@@ -1877,7 +1904,7 @@ function saveEdit() {
 
   closeEditModal();
   renderStats(); applyFilters();
-  pushToGitHub();
+  pushSeriesToGitHub(prevTitle, updated);
 }
 
 // ── ACTUALITZAR PUNTUACIONS TMDB ─────────────────────────────────────────────
@@ -1923,6 +1950,20 @@ async function runUpdateScores() {
   document.getElementById('btnCloseUpdate').textContent = 'Tancar';
   document.getElementById('updateProgress').style.display = 'block';
   document.getElementById('updateResult').style.display = 'none';
+
+  // Comencem sempre des de l'estat MÉS RECENT de GitHub, no de la còpia en
+  // memòria d'aquesta pestanya — si fa temps que és oberta, escriure-hi a
+  // sobre al final esborraria/revertiria canvis fets per una altra sessió
+  // mentrestant. Guardem també el sha d'aquest moment perquè el desament
+  // final el faci servir (i es rebutgi si algú desa durant l'execució).
+  bulkUpdateBaseSha = null;
+  try {
+    const fresh = await fetchFreshSeriesData();
+    SERIES_DATA.length = 0;
+    SERIES_DATA.push(...fresh.data);
+    bulkUpdateBaseSha = fresh.sha;
+    applyFilters();
+  } catch (e) { /* si falla la lectura fresca, seguim amb el que ja hi havia */ }
 
   const TMDB = 'https://api.themoviedb.org/3';
   const total = SERIES_DATA.length;
@@ -2014,7 +2055,8 @@ async function runUpdateScores() {
 async function saveAfterUpdate() {
   document.getElementById('btnSaveUpdate').disabled = true;
   document.getElementById('updateModal').style.display = 'none';
-  await pushToGitHub();
+  await pushToGitHub(bulkUpdateBaseSha);
+  bulkUpdateBaseSha = null;
 }
 
 // ── FILMAFFINITY LOCAL SCRIPT ────────────────────────────────────────────────
@@ -2103,7 +2145,81 @@ async function pollFilmStatus() {
 }
 
 // ── GITHUB API ───────────────────────────────────────────────────────────────
-async function pushToGitHub() {
+// Desa NOMÉS la sèrie afectada, fent merge amb l'estat MÉS RECENT de GitHub
+// en comptes de sobreescriure tot el fitxer amb la còpia en memòria d'aquesta
+// pestanya. Així, encara que la pestanya faci hores que és oberta (i li
+// faltin canvis fets per una altra sessió mentrestant), el "Guardar" només
+// toca la sèrie que s'ha editat de veritat — no esborra ni reverteix res més.
+//
+//   prevTitle:       títol de la sèrie ABANS de l'edició ('' si és nova)
+//   newSeriesOrNull: la sèrie actualitzada, o null per eliminar-la
+//
+// En acabar amb èxit, substitueix SERIES_DATA per l'estat fresc que s'acaba
+// de desar — la pestanya queda "auto-curada" encara que fos vella.
+async function pushSeriesToGitHub(prevTitle, newSeriesOrNull) {
+  const token = localStorage.getItem('gh_token');
+  if (!token) return false;
+  const statusEl = document.getElementById('adminStatus');
+  statusEl.textContent = '⏳ Guardant…';
+  statusEl.className = 'admin-status saving';
+
+  const api = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}`;
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const { data: freshData, sha } = await fetchFreshSeriesData();
+
+      const idx = prevTitle ? freshData.findIndex(s => s.t === prevTitle) : -1;
+      if (newSeriesOrNull === null) {
+        if (idx !== -1) freshData.splice(idx, 1);
+      } else if (idx === -1) {
+        freshData.push(newSeriesOrNull);   // nova, o algú ja l'havia eliminat
+      } else {
+        freshData[idx] = newSeriesOrNull;
+      }
+
+      const b64 = utf8ToB64(JSON.stringify(freshData, null, null));
+      const res = await fetch(api, {
+        method: 'PUT',
+        headers: {
+          Authorization: `token ${token}`,
+          Accept: 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: 'Update series.json via web admin', content: b64, sha }),
+      });
+
+      if ((res.status === 409 || res.status === 422) && attempt === 0) {
+        continue;   // algú ha desat just abans: reintentem un cop amb dades noves
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `Error ${res.status}`);
+      }
+
+      SERIES_DATA.length = 0;
+      SERIES_DATA.push(...freshData);
+      renderStats(); applyFilters();
+
+      statusEl.textContent = '✓ Guardat! GitHub Pages redesplegarà en ~1-2 min';
+      statusEl.className = 'admin-status ok';
+      return true;
+    } catch (e) {
+      statusEl.textContent = `✗ ${e.message}`;
+      statusEl.className = 'admin-status err';
+      return false;
+    }
+  }
+  return false;
+}
+
+// Escriptura completa del fitxer — només per a l'actualització massiva de
+// TMDB, que legítimament toca moltes sèries alhora (fer-ho sèrie a sèrie
+// seria massa lent). `expectedSha` ha de ser el sha capturat just abans de
+// començar el lot (vegeu runUpdateScores): si algú ha desat a GitHub durant
+// l'execució, la sha ja no coincidirà i GitHub rebutjarà l'escriptura en
+// comptes de deixar-nos sobreescriure-la a cegues.
+async function pushToGitHub(expectedSha) {
   const token = localStorage.getItem('gh_token');
   if (!token) return;
   const statusEl = document.getElementById('adminStatus');
@@ -2113,18 +2229,16 @@ async function pushToGitHub() {
   try {
     const api = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}`;
 
-    // 1. Get current SHA
-    const meta = await fetch(api, {
-      headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }
-    });
-    if (!meta.ok) throw new Error(`No s'ha pogut llegir el fitxer (${meta.status})`);
-    const { sha } = await meta.json();
+    let sha = expectedSha;
+    if (!sha) {
+      const meta = await fetch(api, {
+        headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }
+      });
+      if (!meta.ok) throw new Error(`No s'ha pogut llegir el fitxer (${meta.status})`);
+      ({ sha } = await meta.json());
+    }
 
-    // 2. Encode content (UTF-8 safe base64)
-    const content = JSON.stringify(SERIES_DATA, null, null);
-    const b64 = btoa(unescape(encodeURIComponent(content)));
-
-    // 3. Push
+    const b64 = utf8ToB64(JSON.stringify(SERIES_DATA, null, null));
     const res = await fetch(api, {
       method: 'PUT',
       headers: {
@@ -2135,8 +2249,11 @@ async function pushToGitHub() {
       body: JSON.stringify({ message: 'Update series.json via web admin', content: b64, sha }),
     });
 
+    if (res.status === 409 || res.status === 422) {
+      throw new Error("Algú ha desat canvis a GitHub mentre s'executava aquesta actualització massiva — no s'ha sobreescrit res. Recarrega la pàgina (F5) i torna-ho a provar.");
+    }
     if (!res.ok) {
-      const err = await res.json();
+      const err = await res.json().catch(() => ({}));
       throw new Error(err.message || `Error ${res.status}`);
     }
 
