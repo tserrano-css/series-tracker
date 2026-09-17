@@ -33,13 +33,24 @@ _driver = None
 _driver_lock = threading.Lock()
 
 
+# Persistent executor for _run_with_timeout — NEVER wrap it in `with`.
+# ThreadPoolExecutor.__exit__ calls shutdown(wait=True), which blocks until
+# the submitted task finishes even after .result(timeout=...) has already
+# given up on it. If the Selenium call is truly hung (not just slow), that
+# turns every "bounded" wait into an unbounded one — which is exactly what
+# froze the whole server: a liveness probe on a dead chromedriver hung inside
+# the `with` block's teardown, forever, while holding _driver_lock.
+_TIMEOUT_POOL = ThreadPoolExecutor(max_workers=4)
+
+
 def _run_with_timeout(fn, timeout):
     """Run `fn` in a worker thread, raising if it doesn't finish in `timeout`
     seconds. Selenium calls can hang forever (not just raise) when the
     underlying chromedriver/chrome process is dead-but-not-quite, so a plain
-    try/except around them is not enough — this bounds the wait."""
-    with ThreadPoolExecutor(max_workers=1) as ex:
-        return ex.submit(fn).result(timeout=timeout)
+    try/except around them is not enough — this bounds the wait. The worker
+    thread is simply abandoned on timeout (Python can't kill a thread); it
+    will die on its own once the OS process it's blocked on is gone."""
+    return _TIMEOUT_POOL.submit(fn).result(timeout=timeout)
 
 
 def _kill_driver(driver):
@@ -255,6 +266,9 @@ def _cleanup():
     if _driver is not None:
         _kill_driver(_driver)
         _driver = None
+    # wait=False: don't block process exit on any thread still stuck inside
+    # a hung Selenium call (see _run_with_timeout).
+    _TIMEOUT_POOL.shutdown(wait=False, cancel_futures=True)
 
 
 if __name__ == '__main__':
