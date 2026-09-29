@@ -1843,7 +1843,12 @@ async function updateSingleScores() {
           setVal('editFaUrl', d.fa_url);
         }
       } else {
-        localError = `El servidor local ha respost ${res.status}. Torna-ho a provar (no facis clics solapats).`;
+        // El servidor local sol explicar la causa real al cos JSON ({error: ...});
+        // la mostrem en lloc d'un missatge genèric que pot despistar.
+        const body = await res.json().catch(() => null);
+        localError = body?.error
+          ? `Servidor local (${res.status}): ${body.error}`
+          : `El servidor local ha respost ${res.status}. Torna-ho a provar (no facis clics solapats).`;
       }
     } catch (e) {
       localError = 'No s\'ha pogut contactar amb local_server.py (està engegat?).';

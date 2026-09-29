@@ -106,6 +106,34 @@ def _kill_pids(pids):
             pass
 
 
+def _sweep_automation_orphans():
+    """Kill leftover automation Chrome/chromedriver processes, by signature.
+
+    When this server dies abruptly (taskkill /F, the terminal being closed, the
+    session that launched it ending) `atexit` never runs, so the Chrome window
+    it was driving is orphaned for good. They pile up across restarts. Safe to
+    call whenever we have no live driver of our own (startup, or right after
+    we've discarded one).
+
+    Only matches what undetected-chromedriver launches — Chrome with
+    `--test-type` and a throwaway `Temp\\tmp…` profile, plus its chromedriver —
+    so a normal browser is never touched. Returns how many were killed."""
+    ps = (
+        "Get-CimInstance Win32_Process | Where-Object { "
+        "($_.Name -eq 'chrome.exe' -and $_.CommandLine -match '--test-type' "
+        "-and $_.CommandLine -match 'Temp\\\\tmp') "
+        "-or $_.Name -eq 'undetected_chromedriver.exe' } | "
+        "ForEach-Object { Stop-Process -Id $_.ProcessId -Force "
+        "-ErrorAction SilentlyContinue; $_.ProcessId }"
+    )
+    try:
+        out = subprocess.run(['powershell', '-NoProfile', '-Command', ps],
+                             capture_output=True, text=True, timeout=30).stdout
+        return sum(1 for line in out.splitlines() if line.strip().isdigit())
+    except Exception:
+        return 0
+
+
 def _make_driver_cleanly():
     """Call fetch_filmaffinity.make_driver(), sweeping up any chrome.exe it
     leaves orphaned if it fails partway through.
@@ -127,8 +155,22 @@ def _make_driver_cleanly():
         return F.make_driver()
     except Exception:
         _kill_pids(_running_chrome_pids() - before)
-        print('  Neteja de processos orfes feta → reintentant crear el navegador…')
-        return F.make_driver()  # si torna a fallar, que pugi l'excepció
+        swept = _sweep_automation_orphans()
+        print(f'  Neteja de processos orfes feta ({swept} més) → reintentant crear el navegador…')
+        try:
+            return F.make_driver()
+        except Exception as e:
+            if 'unexpectedly exited' in str(e):
+                # Codi 3221225794 = 0xC0000142 (DLL_INIT_FAILED): Windows no deixa
+                # arrencar chromedriver des d'aquest procés — passa quan el servidor
+                # va ser llançat per una sessió/terminal que ja s'ha tancat. Un
+                # procés nou sí que pot, així que la solució és reiniciar-lo.
+                raise RuntimeError(
+                    "No s'ha pogut obrir el navegador (chromedriver no arrenca des d'aquest "
+                    "procés del servidor, sovint perquè es va llançar des d'una sessió ja "
+                    "tancada). Reinicia el servidor: tanca'l i executa 'python local_server.py'."
+                ) from e
+            raise
 
 
 def get_driver():
@@ -279,10 +321,16 @@ def _cleanup():
 if __name__ == '__main__':
     import atexit
     atexit.register(_cleanup)
+    # Primer lliguem el port: si ja hi ha un altre servidor actiu, això falla aquí
+    # i NO arribem a la neteja d'sota (que mataria el navegador d'aquell servidor).
+    httpd = http.server.ThreadingHTTPServer(('localhost', PORT), Handler)
     print(f"Servint series-tracker a http://localhost:{PORT}")
-    print("Endpoints: POST /run-script · GET /fetch-scores?imdb_url&title&year&fa_url")
+    print("Endpoints: POST /run-script · GET /fetch-scores?imdb_url&title&year&fa_url&orig_title")
+    swept = _sweep_automation_orphans()
+    if swept:
+        print(f"  Netejats {swept} processos orfes de navegador/driver d'execucions anteriors.")
     try:
-        http.server.ThreadingHTTPServer(('localhost', PORT), Handler).serve_forever()
+        httpd.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
