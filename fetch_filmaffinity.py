@@ -208,6 +208,11 @@ def main():
             else:
                 # Unknown → search by title, disambiguate by year, save the url
                 score, found_url = search_score(driver, s['t'], s.get('yr'))
+                # Si el títol (sovint traduït) no troba res, reintenta amb
+                # l'original — FA sol llistar sèries/pel·lícules estrangeres així.
+                orig_title = s.get('ot')
+                if score is None and orig_title and orig_title != s['t']:
+                    score, found_url = search_score(driver, orig_title, s.get('yr'))
                 tag = '🔍'
 
             if score:

@@ -1264,6 +1264,9 @@ function goPage(p) {
         <label class="full">Títol
           <input id="editTitle" type="text" required placeholder="Nom de la sèrie">
         </label>
+        <label class="full">Títol original
+          <input id="editOt" type="text" placeholder="Original title / títol en versió original">
+        </label>
         <div class="full" id="editUpdateRow" style="display:none">
           <button type="button" class="btn-adm" onclick="updateSingleScores()" id="btnUpdateSingle">🔄 Actualitzar puntuacions i episodis</button>
           <span id="updateSingleStatus" style="font-size:12px;color:var(--text-muted);margin-left:8px"></span>
@@ -1514,6 +1517,7 @@ function openEditSeries(idx) {
   const s = SERIES_DATA[idx];
   document.getElementById('editModalTitle').textContent = '✏️ ' + s.t;
   document.getElementById('editTitle').value   = s.t || '';
+  document.getElementById('editOt').value      = s.ot || '';
   document.getElementById('editEstat').value   = s.estat || 'No comencada';
   const platVals = (s.p || '').split(',').map(x => x.trim());
   document.querySelectorAll('input[name="plat"]').forEach(cb => { cb.checked = platVals.includes(cb.value); });
@@ -1771,6 +1775,13 @@ async function updateSingleScores() {
             setVal('editPoster', 'https://image.tmdb.org/t/p/w185' + d.poster_path);
             fmt('Poster', '—', 'desat');
           }
+          // Títol original: original_name (sèries) o original_title (pel·lícules).
+          const origTitle = d.original_name || d.original_title;
+          if (origTitle) {
+            const otBefore = document.getElementById('editOt').value.trim();
+            if (origTitle !== otBefore) fmt('Títol original', otBefore || '—', origTitle);
+            setVal('editOt', origTitle);
+          }
           // Plataformes: sincronitza EXACTAMENT amb la disponibilitat a Espanya
           // segons JustWatch (TMDB /watch/providers). Substitueix del tot la
           // selecció, incloent buidar-la si JustWatch no reporta cap plataforma
@@ -1801,9 +1812,13 @@ async function updateSingleScores() {
   if (isLocal) {
     statusEl.textContent = '⏳ IMDb i Filmaffinity (navegador real)…';
     try {
+      const origTitleForSearch = document.getElementById('editOt').value.trim();
       const params = new URLSearchParams({
         imdb_url: s.u || '',
         title:    s.t || '',
+        // Si Filmaffinity no troba res pel títol (traduït), reintenta amb
+        // l'original — útil per a sèries/pel·lícules on FA usa l'anglès.
+        orig_title: (origTitleForSearch && origTitleForSearch !== s.t) ? origTitleForSearch : '',
         year:     document.getElementById('editYear').value || s.yr || '',
         fa_url:   document.getElementById('editFaUrl').value.trim() || '',
       });
@@ -1864,6 +1879,7 @@ function saveEdit() {
   const tmtypeVal = document.getElementById('editTmtype').value.trim() || prev.tmtype;
   const updated = {
     t:  document.getElementById('editTitle').value.trim(),
+    ot: document.getElementById('editOt').value.trim(),
     u:  document.getElementById('editUrl').value.trim(),
     p:  plat,
     i:  imdb, f: fa, tm: tm, m: media,

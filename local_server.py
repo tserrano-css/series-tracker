@@ -153,7 +153,7 @@ def get_driver():
     return _driver
 
 
-def fetch_scores(imdb_url, title, year, fa_url):
+def fetch_scores(imdb_url, title, year, fa_url, orig_title=None):
     """Return {imdb, fa, fa_url} scraped with the real browser."""
     import fetch_filmaffinity as F
     out = {'imdb': None, 'fa': None, 'fa_url': fa_url or None}
@@ -165,6 +165,10 @@ def fetch_scores(imdb_url, title, year, fa_url):
             out['fa'] = F.score_from_url(driver, fa_url)
         elif title:
             score, found_url = F.search_score(driver, title, year)
+            # Si el títol (sovint traduït) no troba res a Filmaffinity, reintenta
+            # amb el títol original — FA sol llistar sèries estrangeres així.
+            if score is None and orig_title and orig_title != title:
+                score, found_url = F.search_score(driver, orig_title, year)
             out['fa'] = score
             out['fa_url'] = found_url
     return out
@@ -246,14 +250,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_json(job_state)
         elif parsed.path == '/fetch-scores':
             q = parse_qs(parsed.query)
-            imdb_url = q.get('imdb_url', [''])[0]
-            title    = q.get('title', [''])[0]
-            year     = q.get('year', [''])[0]
-            fa_url   = q.get('fa_url', [''])[0]
+            imdb_url   = q.get('imdb_url', [''])[0]
+            title      = q.get('title', [''])[0]
+            orig_title = q.get('orig_title', [''])[0]
+            year       = q.get('year', [''])[0]
+            fa_url     = q.get('fa_url', [''])[0]
             try:
                 result = fetch_scores(imdb_url, title,
                                       int(year) if year.isdigit() else None,
-                                      fa_url)
+                                      fa_url, orig_title)
                 self._send_json(result)
             except Exception as e:
                 self._send_json({'error': str(e)}, status=500)
