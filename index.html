@@ -986,8 +986,21 @@ function toggleEstrena(el) {
   applyFilters();
 }
 
+// Normalitza text per a la cerca: minúscules, sense accents/diacrítics ("Shōgun"
+// → "shogun"), i sense res que no sigui lletra o dígit (espais, guions, punts,
+// dos punts…: "R.J. Decker" i "spider-noir" coincideixen amb "rj decker" /
+// "spider noir"). Les lletres que NFD no descompon (ø, ł, ß…) es transliteren.
+const _TRANSLIT = { 'ø':'o', 'ł':'l', 'đ':'d', 'ð':'d', 'ß':'ss', 'æ':'ae', 'œ':'oe', 'þ':'th', 'ı':'i' };
+function normSearch(str) {
+  return String(str || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/\p{M}/gu, '')
+    .replace(/[øłđðßæœþı]/g, c => _TRANSLIT[c])
+    .replace(/[^\p{L}\p{N}]/gu, '');
+}
+
 function applyFilters() {
-  const q = document.getElementById('searchInput').value.toLowerCase().trim();
+  const q = normSearch(document.getElementById('searchInput').value);
   const plat = document.getElementById('platformFilter').value;
   const sort = document.getElementById('sortFilter').value;
   const estado = activeFilters.estado || 'all';
@@ -1002,7 +1015,7 @@ function applyFilters() {
     if (animFilter === 'exclude' && s.a) return false;
     if (activeFilters.estrena && !(s.es && s.es.trim())) return false;
     if (plat && s.pm !== plat) return false;
-    if (q && !s.t.toLowerCase().includes(q) && !s.p.toLowerCase().includes(q)) return false;
+    if (q && !normSearch(s.t).includes(q) && !normSearch(s.p).includes(q)) return false;
     return true;
   });
 
