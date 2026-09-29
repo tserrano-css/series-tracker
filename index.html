@@ -1015,7 +1015,7 @@ function applyFilters() {
     if (animFilter === 'exclude' && s.a) return false;
     if (activeFilters.estrena && !(s.es && s.es.trim())) return false;
     if (plat && s.pm !== plat) return false;
-    if (q && !normSearch(s.t).includes(q) && !normSearch(s.p).includes(q)) return false;
+    if (q && !normSearch(s.t).includes(q) && !normSearch(s.ot).includes(q) && !normSearch(s.p).includes(q)) return false;
     return true;
   });
 
